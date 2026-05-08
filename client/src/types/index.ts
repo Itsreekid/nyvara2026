@@ -12,8 +12,14 @@ export interface Product {
   title: string | null;
   description: string | null;
   price: number | null;
-  cost_price: number | null;   // purchase/original price
-  stock: number | null;        // inventory count
+  cost_price: number | null;        // purchase/original price
+  stock: number | null;             // inventory count
+  discount: number | null;          // percentage e.g. 20 = 20% off
+  badge: string | null;             // e.g. "#1 Meilleure vente"
+  features: string | null;          // newline-separated bullet points
+  specs: Record<string, string> | null; // {"Matière": "TR90", ...}
+  rating: number | null;            // 1–5
+  review_count: number | null;
   image_url: string | null;
   created_at: string | null;
   category_id: string | null;

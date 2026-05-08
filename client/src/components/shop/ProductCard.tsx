@@ -1,8 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useEffect, useRef } from 'react';
-import { Heart, ShoppingBag, Eye } from 'lucide-react';
+import { Heart, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import Badge from '@/components/ui/Badge';
@@ -12,7 +13,6 @@ import { fbEvent } from '@/components/analytics/FacebookPixel';
 
 interface ProductCardProps {
   product: Product;
-  onQuickView?: (product: Product) => void;
 }
 
 const formatTND = (price: number | null) => {
@@ -20,7 +20,7 @@ const formatTND = (price: number | null) => {
   return `${price.toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND`;
 };
 
-export default function ProductCard({ product, onQuickView }: ProductCardProps) {
+export default function ProductCard({ product }: ProductCardProps) {
   const { addItem, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isWishlisted } = useWishlist();
   const viewFired = useRef(false);
@@ -28,6 +28,12 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
 
   const inCart     = isInCart(product.id);
   const wishlisted = isWishlisted(product.id);
+
+  // Discount calculation
+  const hasDiscount     = product.discount != null && product.discount > 0;
+  const discountedPrice = hasDiscount && product.price != null
+    ? product.price * (1 - product.discount! / 100)
+    : null;
 
   // Fire ViewContent once when card enters viewport (retargeting signal)
   useEffect(() => {
@@ -50,7 +56,8 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
     return () => observer.disconnect();
   }, [product]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault(); // prevent navigation when clicking Add to Cart
     addItem(product);
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
@@ -59,7 +66,8 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
     });
   };
 
-  const handleWishlist = () => {
+  const handleWishlist = (e: React.MouseEvent) => {
+    e.preventDefault(); // prevent navigation
     if (wishlisted) {
       removeFromWishlist(product.id);
     } else {
@@ -78,76 +86,82 @@ export default function ProductCard({ product, onQuickView }: ProductCardProps) 
   };
 
   return (
-    <article ref={cardRef} className={styles.card} aria-label={product.title ?? 'Product'}>
-      {/* Image */}
-      <div className={styles.imageWrap}>
-        {product.image_url ? (
-          <Image
-            src={product.image_url}
-            alt={product.title ?? 'Sunglasses'}
-            fill
-            className={styles.image}
-            sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
-          />
-        ) : (
-          <div className={styles.imagePlaceholder} aria-hidden="true">
-            <span className={styles.placeholderText}>NYVARA</span>
-          </div>
-        )}
-
-        {/* Hover overlay actions */}
-        <div className={styles.overlay}>
-          <button
-            className={styles.overlayBtn}
-            onClick={() => onQuickView?.(product)}
-            aria-label="Quick view"
-            title="Quick view"
-          >
-            <Eye size={16} />
-          </button>
-        </div>
-
-        {/* Gender badge */}
-        {product.gender && (
-          <div className={styles.genderBadge}>
-            <Badge variant="black">
-              {genderLabel[product.gender] ?? product.gender}
-            </Badge>
-          </div>
-        )}
-
-        {/* Wishlist btn */}
-        <button
-          className={`${styles.wishlistBtn} ${wishlisted ? styles.wishlisted : ''}`}
-          onClick={handleWishlist}
-          aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-        >
-          <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} />
-        </button>
-      </div>
-
-      {/* Info */}
-      <div className={styles.info}>
-        <div className={styles.meta}>
-          {product.categories?.name && (
-            <span className={styles.category}>{product.categories.name}</span>
+    <Link href={`/shop/${product.id}`} style={{ textDecoration: 'none' }}>
+      <article ref={cardRef} className={styles.card} aria-label={product.title ?? 'Product'}>
+        {/* Image */}
+        <div className={styles.imageWrap}>
+          {product.image_url ? (
+            <Image
+              src={product.image_url}
+              alt={product.title ?? 'Sunglasses'}
+              fill
+              className={styles.image}
+              sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            />
+          ) : (
+            <div className={styles.imagePlaceholder} aria-hidden="true">
+              <span className={styles.placeholderText}>NYVARA</span>
+            </div>
           )}
-        </div>
 
-        <h3 className={styles.title}>{product.title ?? 'Sunglasses'}</h3>
+          {/* Gender badge */}
+          {product.gender && (
+            <div className={styles.genderBadge}>
+              <Badge variant="black">
+                {genderLabel[product.gender] ?? product.gender}
+              </Badge>
+            </div>
+          )}
 
-        <div className={styles.footer}>
-          <p className={styles.price}>{formatTND(product.price)}</p>
+          {/* Discount badge */}
+          {hasDiscount && (
+            <div className={styles.discountBadge}>
+              -{product.discount}%
+            </div>
+          )}
+
+          {/* Wishlist btn */}
           <button
-            className={`${styles.addBtn} ${inCart ? styles.inCart : ''}`}
-            onClick={handleAddToCart}
-            aria-label={inCart ? 'Added to cart' : 'Add to cart'}
+            className={`${styles.wishlistBtn} ${wishlisted ? styles.wishlisted : ''}`}
+            onClick={handleWishlist}
+            aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           >
-            <ShoppingBag size={14} />
-            <span>{inCart ? 'Added' : 'Add to Cart'}</span>
+            <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} />
           </button>
         </div>
-      </div>
-    </article>
+
+        {/* Info */}
+        <div className={styles.info}>
+          <div className={styles.meta}>
+            {product.categories?.name && (
+              <span className={styles.category}>{product.categories.name}</span>
+            )}
+          </div>
+
+          <h3 className={styles.title}>{product.title ?? 'Sunglasses'}</h3>
+
+          <div className={styles.footer}>
+            <div className={styles.priceBlock}>
+              {hasDiscount ? (
+                <>
+                  <p className={styles.originalPrice}>{formatTND(product.price)}</p>
+                  <p className={styles.price}>{formatTND(discountedPrice)}</p>
+                </>
+              ) : (
+                <p className={styles.price} style={{ color: 'var(--color-black)' }}>{formatTND(product.price)}</p>
+              )}
+            </div>
+            <button
+              className={`${styles.addBtn} ${inCart ? styles.inCart : ''}`}
+              onClick={handleAddToCart}
+              aria-label={inCart ? 'Added to cart' : 'Add to cart'}
+            >
+              <ShoppingBag size={14} />
+              <span>{inCart ? 'Added' : 'Add to Cart'}</span>
+            </button>
+          </div>
+        </div>
+      </article>
+    </Link>
   );
 }

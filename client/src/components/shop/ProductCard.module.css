@@ -67,6 +67,21 @@
 .wishlistBtn:hover { color: #E55; transform: scale(1.1); }
 .wishlisted       { color: #E55 !important; }
 
+/* Discount badge — bottom left of image */
+.discountBadge {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  background: #e53935;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
 /* ─── Info ────────────────────────────────────────── */
 .info { padding: 16px 18px; }
 .meta { margin-bottom: 6px; }
@@ -87,10 +102,20 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+
+.priceBlock { display: flex; flex-direction: column; gap: 1px; }
+
+.originalPrice {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-grey);
+  text-decoration: line-through;
+  white-space: nowrap;
+}
 .price {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-black);
+  color: #e53935;
   white-space: nowrap;
 }
 

@@ -229,6 +229,7 @@ export default function AdminDashboardPage() {
       <div className={styles.chartSection}>
         <h2 className={styles.sectionTitle}>Dernières Commandes</h2>
         <div className={adminStyles.tableContainer}>
+          <div className={adminStyles.tableScrollWrapper}>
           <table className={adminStyles.table}>
             <thead>
               <tr>
@@ -254,6 +255,7 @@ export default function AdminDashboardPage() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>

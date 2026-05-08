@@ -1,27 +1,36 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+// Routes only admins can visit
+const ADMIN_ONLY = ['/admin/products', '/admin/categories', '/admin/employees'];
+
 export function middleware(request: NextRequest) {
-  const isAdminRoute = request.nextUrl.pathname.startsWith('/admin');
-  const isLoginRoute = request.nextUrl.pathname === '/admin/login';
+  const { pathname } = request.nextUrl;
+  const isAdminRoute = pathname.startsWith('/admin');
+  const isLoginRoute = pathname === '/admin/login';
 
-  if (isAdminRoute && !isLoginRoute) {
-    // Check for the admin session cookie
-    const adminAuth = request.cookies.get('nyvara_admin_auth')?.value;
+  if (!isAdminRoute) return NextResponse.next();
 
-    if (!adminAuth || adminAuth !== 'authenticated') {
-      // Not authenticated, redirect to login page
-      const loginUrl = new URL('/admin/login', request.url);
-      return NextResponse.redirect(loginUrl);
-    }
+  const role = request.cookies.get('nyvara_admin_session')?.value;
+
+  // ── Not logged in ──────────────────────────────────────────────────────
+  if (!role) {
+    if (isLoginRoute) return NextResponse.next();
+    return NextResponse.redirect(new URL('/admin/login', request.url));
   }
 
+  // ── Already logged in, skip login page ────────────────────────────────
   if (isLoginRoute) {
-    const adminAuth = request.cookies.get('nyvara_admin_auth')?.value;
-    if (adminAuth === 'authenticated') {
-      // Already authenticated, redirect to admin dashboard
-      const adminUrl = new URL('/admin', request.url);
-      return NextResponse.redirect(adminUrl);
+    const dest = role === 'admin' ? '/admin' : '/admin/orders';
+    return NextResponse.redirect(new URL(dest, request.url));
+  }
+
+  // ── Employee trying to reach admin-only routes ─────────────────────────
+  if (role === 'employee') {
+    const isDashboard  = pathname === '/admin';
+    const isAdminRoute = ADMIN_ONLY.some(p => pathname.startsWith(p));
+    if (isDashboard || isAdminRoute) {
+      return NextResponse.redirect(new URL('/admin/orders', request.url));
     }
   }
 

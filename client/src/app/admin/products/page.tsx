@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { Product, Category } from '@/types';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { PlusCircle, Trash2, ImageIcon, Loader2 } from 'lucide-react';
 import adminStyles from '../admin.module.css';
 import styles from './products.module.css';
 
@@ -14,28 +15,44 @@ type FormState = {
   price: string;
   cost_price: string;
   stock: string;
+  discount: string;
   description: string;
   image_url: string;
   gender: string;
   category_id: string;
+  badge: string;
+  features: string;
+  rating: string;
+  review_count: string;
 };
 
 const emptyForm: FormState = {
-  title: '', price: '', cost_price: '', stock: '0', description: '',
-  image_url: '', gender: 'unisex', category_id: '',
+  title: '', price: '', cost_price: '', stock: '0', discount: '',
+  description: '', image_url: '', gender: 'unisex', category_id: '',
+  badge: '', features: '', rating: '', review_count: '',
 };
 
+interface SpecRow { key: string; value: string; }
+
+interface GalleryImage { id: string; image_url: string; sort_order: number; }
+
 export default function AdminProductsPage() {
-  const [products, setProducts]   = useState<Product[]>([]);
+  const [products, setProducts]     = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading]     = useState(true);
+  const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Modal state
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null); // null = add mode
-  const [formData, setFormData]   = useState<FormState>(emptyForm);
+  // Modal
+  const [modalOpen, setModalOpen]         = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [formData, setFormData]           = useState<FormState>(emptyForm);
+  const [specRows, setSpecRows]           = useState<SpecRow[]>([]);
+
+  // Gallery
+  const [galleryImages, setGalleryImages]       = useState<GalleryImage[]>([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   const fetchAll = () => {
     setLoading(true);
@@ -51,26 +68,40 @@ export default function AdminProductsPage() {
 
   useEffect(() => { fetchAll(); }, []);
 
-  // Open modal in ADD mode
   const openAddModal = () => {
     setEditingProduct(null);
     setFormData(emptyForm);
+    setGalleryImages([]);
     setModalOpen(true);
   };
 
-  // Open modal in EDIT mode pre-filled
-  const openEditModal = (p: Product) => {
+  const openEditModal = async (p: Product) => {
     setEditingProduct(p);
     setFormData({
-      title:       p.title       ?? '',
-      price:       p.price       != null ? String(p.price)       : '',
-      cost_price:  p.cost_price  != null ? String(p.cost_price)  : '',
-      stock:       p.stock       != null ? String(p.stock)       : '0',
-      description: p.description ?? '',
-      image_url:   p.image_url   ?? '',
-      gender:      p.gender      ?? 'unisex',
-      category_id: p.category_id ?? '',
+      title:        p.title        ?? '',
+      price:        p.price        != null ? String(p.price)       : '',
+      cost_price:   p.cost_price   != null ? String(p.cost_price)  : '',
+      stock:        p.stock        != null ? String(p.stock)       : '0',
+      discount:     p.discount     != null ? String(p.discount)    : '',
+      description:  p.description  ?? '',
+      image_url:    p.image_url    ?? '',
+      gender:       p.gender       ?? 'unisex',
+      category_id:  p.category_id  ?? '',
+      badge:        p.badge        ?? '',
+      features:     p.features     ?? '',
+      rating:       p.rating       != null ? String(p.rating)      : '',
+      review_count: p.review_count != null ? String(p.review_count): '',
     });
+    // Specs rows
+    const specs = (p.specs ?? {}) as Record<string, string>;
+    setSpecRows(Object.entries(specs).map(([key, value]) => ({ key, value })));
+    // Load gallery images for this product
+    const { data } = await supabase
+      .from('product_images')
+      .select('*')
+      .eq('product_id', p.id)
+      .order('sort_order');
+    setGalleryImages((data as GalleryImage[]) ?? []);
     setModalOpen(true);
   };
 
@@ -78,15 +109,25 @@ export default function AdminProductsPage() {
     e.preventDefault();
     setSubmitting(true);
 
+    const specsObj = Object.fromEntries(
+      specRows.filter(r => r.key.trim()).map(r => [r.key.trim(), r.value.trim()])
+    );
+
     const payload = {
-      title:       formData.title,
-      price:       parseFloat(formData.price) || 0,
-      cost_price:  formData.cost_price ? parseFloat(formData.cost_price) : null,
-      stock:       parseInt(formData.stock, 10) || 0,
-      description: formData.description,
-      image_url:   formData.image_url,
-      gender:      formData.gender,
-      category_id: formData.category_id || null,
+      title:        formData.title,
+      price:        parseFloat(formData.price) || 0,
+      cost_price:   formData.cost_price   ? parseFloat(formData.cost_price)   : null,
+      stock:        parseInt(formData.stock, 10) || 0,
+      discount:     formData.discount     ? parseFloat(formData.discount)     : null,
+      description:  formData.description,
+      image_url:    formData.image_url,
+      gender:       formData.gender,
+      category_id:  formData.category_id || null,
+      badge:        formData.badge        || null,
+      features:     formData.features     || null,
+      rating:       formData.rating       ? parseFloat(formData.rating)       : null,
+      review_count: formData.review_count ? parseInt(formData.review_count)   : null,
+      specs:        Object.keys(specsObj).length > 0 ? specsObj : null,
     };
 
     const { error } = editingProduct
@@ -94,7 +135,6 @@ export default function AdminProductsPage() {
       : await supabase.from('products').insert([payload]);
 
     setSubmitting(false);
-
     if (!error) {
       setModalOpen(false);
       setFormData(emptyForm);
@@ -111,13 +151,51 @@ export default function AdminProductsPage() {
     fetchAll();
   };
 
+  // ── Gallery upload ─────────────────────────────────────────────────────────
+  const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !editingProduct) return;
+
+    setUploadingGallery(true);
+    try {
+      const ext  = file.name.split('.').pop();
+      const path = `images/${Date.now()}_${Math.random().toString(36).slice(7)}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('Product')
+        .upload(path, file, { cacheControl: '3600', upsert: false });
+      if (upErr) throw upErr;
+
+      const { data: { publicUrl } } = supabase.storage.from('Product').getPublicUrl(path);
+
+      const nextOrder = galleryImages.length;
+      const { data: img, error: dbErr } = await supabase
+        .from('product_images')
+        .insert({ product_id: editingProduct.id, image_url: publicUrl, sort_order: nextOrder })
+        .select()
+        .single();
+      if (dbErr) throw dbErr;
+      setGalleryImages(prev => [...prev, img as GalleryImage]);
+    } catch (err: any) {
+      alert('Erreur upload : ' + err.message);
+    } finally {
+      setUploadingGallery(false);
+      if (galleryInputRef.current) galleryInputRef.current.value = '';
+    }
+  };
+
+  const handleGalleryDelete = async (id: string) => {
+    await supabase.from('product_images').delete().eq('id', id);
+    setGalleryImages(prev => prev.filter(img => img.id !== id));
+  };
+
   const margin = (p: Product) => {
     if (p.price == null || p.cost_price == null) return null;
     return p.price - p.cost_price;
   };
 
-  const set = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
-    setFormData(prev => ({ ...prev, [field]: e.target.value }));
+  const set = (field: keyof FormState) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setFormData(prev => ({ ...prev, [field]: e.target.value }));
 
   if (loading) return <div className={adminStyles.contentArea}>Chargement...</div>;
 
@@ -138,6 +216,7 @@ export default function AdminProductsPage() {
               <th>Stock</th>
               <th>Prix vente</th>
               <th>Prix achat</th>
+              <th>Remise</th>
               <th>Marge</th>
               <th>Genre</th>
               <th>Actions</th>
@@ -154,7 +233,7 @@ export default function AdminProductsPage() {
                   <td>{p.title}</td>
                   <td>{p.categories?.name ?? <span className={styles.noCost}>—</span>}</td>
                   <td>
-                    {p.stock != null && p.stock > 0 
+                    {p.stock != null && p.stock > 0
                       ? <span style={{ color: 'var(--color-charcoal)' }}>{p.stock}</span>
                       : <span style={{ color: 'var(--color-error)' }}>Rupture</span>}
                   </td>
@@ -162,6 +241,11 @@ export default function AdminProductsPage() {
                   <td>
                     {p.cost_price != null
                       ? <span className={styles.costPrice}>{p.cost_price.toFixed(3)} TND</span>
+                      : <span className={styles.noCost}>—</span>}
+                  </td>
+                  <td>
+                    {p.discount != null
+                      ? <span className={styles.discountBadge}>-{p.discount}%</span>
                       : <span className={styles.noCost}>—</span>}
                   </td>
                   <td>
@@ -180,7 +264,7 @@ export default function AdminProductsPage() {
               );
             })}
             {products.length === 0 && (
-              <tr><td colSpan={9} style={{ textAlign: 'center' }}>Aucun produit.</td></tr>
+              <tr><td colSpan={10} style={{ textAlign: 'center' }}>Aucun produit.</td></tr>
             )}
           </tbody>
         </table>
@@ -208,6 +292,10 @@ export default function AdminProductsPage() {
               <input type="number" step="0.001" className={styles.input} placeholder="0.000" value={formData.cost_price} onChange={set('cost_price')} />
             </div>
             <div className={styles.inputGroup}>
+              <label>Remise (%)</label>
+              <input type="number" step="1" min="0" max="100" className={styles.input} placeholder="Ex: 20" value={formData.discount} onChange={set('discount')} />
+            </div>
+            <div className={styles.inputGroup}>
               <label>Stock</label>
               <input type="number" step="1" className={styles.input} value={formData.stock} onChange={set('stock')} />
             </div>
@@ -233,22 +321,142 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
+          {/* Main image */}
           <div className={styles.inputGroup}>
-            <label>Image du produit</label>
-            <ImageUpload 
-              value={formData.image_url} 
-              onChange={(url) => setFormData(prev => ({ ...prev, image_url: url }))}
-              onUploading={(status) => setUploadingImage(status)}
+            <label>Image principale</label>
+            <ImageUpload
+              value={formData.image_url}
+              onChange={url => setFormData(prev => ({ ...prev, image_url: url }))}
+              onUploading={status => setUploadingImage(status)}
             />
           </div>
+
+          {/* Badge */}
+          <div className={styles.priceRow}>
+            <div className={styles.inputGroup}>
+              <label>Badge promo (ex: #1 Meilleure vente)</label>
+              <input type="text" className={styles.input} placeholder="Ex: #1 Meilleure vente" value={formData.badge} onChange={set('badge')} />
+            </div>
+            <div className={styles.inputGroup}>
+              <label>Note (1–5)</label>
+              <input type="number" step="0.1" min="1" max="5" className={styles.input} placeholder="4.5" value={formData.rating} onChange={set('rating')} />
+            </div>
+            <div className={styles.inputGroup}>
+              <label>Nombre d&apos;avis</label>
+              <input type="number" step="1" className={styles.input} placeholder="2875" value={formData.review_count} onChange={set('review_count')} />
+            </div>
+          </div>
+
+          {/* Features */}
+          <div className={styles.inputGroup}>
+            <label>Points forts (une ligne = un bullet)</label>
+            <textarea
+              className={styles.input}
+              rows={4}
+              placeholder={`Protection UV400\nLentilles polarisées HD\nMonture légère TR90`}
+              value={formData.features}
+              onChange={set('features')}
+            />
+          </div>
+
+          {/* Specs */}
+          <div className={styles.inputGroup}>
+            <label>Caractéristiques techniques</label>
+            <div className={styles.specEditor}>
+              {specRows.map((row, i) => (
+                <div key={i} className={styles.specEditorRow}>
+                  <input
+                    className={styles.input}
+                    placeholder="Ex: Matière"
+                    value={row.key}
+                    onChange={e => setSpecRows(prev => prev.map((r, idx) => idx === i ? { ...r, key: e.target.value } : r))}
+                  />
+                  <input
+                    className={styles.input}
+                    placeholder="Ex: TR90"
+                    value={row.value}
+                    onChange={e => setSpecRows(prev => prev.map((r, idx) => idx === i ? { ...r, value: e.target.value } : r))}
+                  />
+                  <button type="button" className={styles.specDelBtn} onClick={() => setSpecRows(prev => prev.filter((_, idx) => idx !== i))}>✕</button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className={styles.specAddBtn}
+                onClick={() => setSpecRows(prev => [...prev, { key: '', value: '' }])}
+              >
+                + Ajouter une caractéristique
+              </button>
+            </div>
+          </div>
+
+          {/* ── Gallery (edit mode only) ── */}
+          {editingProduct && (
+            <div className={styles.inputGroup}>
+              <label>
+                <ImageIcon size={14} style={{ display: 'inline', marginRight: 6 }} />
+                Photos supplémentaires
+              </label>
+
+              <div className={styles.galleryGrid}>
+                {galleryImages.map(img => (
+                  <div key={img.id} className={styles.galleryThumb}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.image_url} alt="" />
+                    <button
+                      type="button"
+                      className={styles.galleryDelBtn}
+                      onClick={() => handleGalleryDelete(img.id)}
+                      title="Supprimer"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+
+                {/* Add button */}
+                <button
+                  type="button"
+                  className={styles.galleryAddBtn}
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={uploadingGallery}
+                  title="Ajouter une photo"
+                >
+                  {uploadingGallery
+                    ? <Loader2 size={20} className={styles.gallerySpinner} />
+                    : <><PlusCircle size={20} /><span>Ajouter</span></>
+                  }
+                </button>
+
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleGalleryFileChange}
+                />
+              </div>
+              <p className={styles.galleryHint}>
+                Ces photos s'affichent dans la galerie de la page produit.
+              </p>
+            </div>
+          )}
 
           <div className={styles.inputGroup}>
             <label>Description</label>
             <textarea className={styles.input} rows={3} value={formData.description} onChange={set('description')} />
           </div>
 
-          <Button type="submit" variant="primary" style={{ width: '100%', marginTop: '8px' }} disabled={submitting || uploadingImage}>
-            {submitting ? 'Enregistrement...' : uploadingImage ? 'Téléchargement de l\'image...' : editingProduct ? '💾 Enregistrer les modifications' : 'Ajouter le produit'}
+          <Button
+            type="submit"
+            variant="primary"
+            style={{ width: '100%', marginTop: '8px' }}
+            disabled={submitting || uploadingImage || uploadingGallery}
+          >
+            {submitting ? 'Enregistrement...'
+              : uploadingImage ? 'Téléchargement...'
+              : editingProduct ? '💾 Enregistrer les modifications'
+              : 'Ajouter le produit'}
           </Button>
         </form>
       </Modal>

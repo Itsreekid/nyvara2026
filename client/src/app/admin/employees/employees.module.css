@@ -1,0 +1,180 @@
+/* ── Users Table ───────────────────────────── */
+.nameCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.userAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--color-cream-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-grey);
+}
+
+.username {
+  font-family: monospace;
+  font-size: 13px;
+  background: var(--color-cream);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--color-black);
+}
+
+.roleBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.roleAdmin {
+  background: rgba(196,160,100,0.15);
+  color: var(--color-gold);
+  border: 1px solid rgba(196,160,100,0.3);
+}
+
+.roleEmployee {
+  background: rgba(80,180,255,0.12);
+  color: #50b4ff;
+  border: 1px solid rgba(80,180,255,0.3);
+}
+
+.deleteBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,80,80,0.3);
+  background: rgba(255,80,80,0.07);
+  color: #ff5050;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.deleteBtn:hover:not(:disabled) { background: rgba(255,80,80,0.18); }
+.deleteBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ── Add Form Card ─────────────────────────── */
+.addCard {
+  margin-top: 28px;
+  background: white;
+  border-radius: 12px;
+  border: 1px solid var(--color-cream-dark);
+  padding: 24px;
+}
+
+.addCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  color: var(--color-black);
+}
+
+.addCardTitle {
+  font-family: var(--font-editorial);
+  font-size: 1.3rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputGroup label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-grey);
+}
+
+.input {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-cream-dark);
+  font-size: 14px;
+  background: var(--color-cream);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border-color 0.2s;
+}
+.input:focus { border-color: var(--color-gold); }
+
+.roleSelect {
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-cream-dark);
+  font-size: 14px;
+  background: var(--color-cream);
+  outline: none;
+  width: 100%;
+  cursor: pointer;
+}
+.roleSelect:focus { border-color: var(--color-gold); }
+
+.submitBtn {
+  align-self: flex-start;
+  padding: 10px 28px;
+  border-radius: 8px;
+  border: none;
+  background: var(--color-black);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.submitBtn:hover { opacity: 0.85; }
+.submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Alerts ─────────────────────────────────── */
+.errorMsg {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(255,80,80,0.08);
+  border: 1px solid rgba(255,80,80,0.25);
+  color: #ff5050;
+  font-size: 14px;
+}
+
+.successMsg {
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: rgba(50,220,100,0.08);
+  border: 1px solid rgba(50,220,100,0.25);
+  color: #32dc64;
+  font-size: 14px;
+}
+
+/* ── Mobile ─────────────────────────────────── */
+@media (max-width: 640px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .addCard {
+    padding: 16px;
+  }
+}

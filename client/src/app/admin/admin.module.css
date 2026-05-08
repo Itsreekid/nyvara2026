@@ -1,3 +1,4 @@
+/* ─── Layout ─────────────────────────────── */
 .layout {
   display: flex;
   min-height: 100vh;
@@ -14,6 +15,9 @@
   position: sticky;
   top: 0;
   height: 100vh;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+  z-index: 200;
 }
 
 .sidebarHeader {
@@ -86,6 +90,22 @@
   background-color: rgba(255, 107, 107, 0.1);
 }
 
+/* ─── Overlay (mobile) ────────────────────── */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 150;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* ─── Main Content ────────────────────────── */
 .main {
   flex: 1;
@@ -107,9 +127,34 @@
   z-index: 10;
 }
 
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Hamburger button — hidden on desktop */
+.menuBtn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--color-black);
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.menuBtn:hover {
+  background: var(--color-cream);
+}
+
 .headerTitle {
   font-weight: 500;
   color: var(--color-grey);
+  font-size: 15px;
 }
 
 .adminProfile {
@@ -130,6 +175,7 @@
   justify-content: center;
   font-family: var(--font-editorial);
   font-size: 1.2rem;
+  flex-shrink: 0;
 }
 
 .contentArea {
@@ -143,6 +189,8 @@
   align-items: center;
   justify-content: space-between;
   margin-bottom: 32px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .pageTitle {
@@ -156,12 +204,21 @@
   background: white;
   border-radius: 12px;
   border: 1px solid var(--color-cream-dark);
-  overflow: hidden;
+  overflow: hidden; /* clips border-radius */
 }
+
+.tableScrollWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+
 
 .table {
   width: 100%;
   border-collapse: collapse;
+  min-width: 560px;
 }
 
 .table th {
@@ -174,6 +231,7 @@
   color: var(--color-grey);
   border-bottom: 1px solid var(--color-cream-dark);
   background: var(--color-cream);
+  white-space: nowrap;
 }
 
 .table td {
@@ -209,4 +267,84 @@
 .statusCancelled {
   background: #f8d7da;
   color: #721c24;
+}
+
+/* ─── Mobile Responsive ───────────────────── */
+@media (max-width: 768px) {
+
+  /* Sidebar becomes a fixed slide-in drawer */
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    height: 100dvh;
+    transform: translateX(-100%);
+    z-index: 200;
+  }
+
+  .sidebar.sidebarOpen {
+    transform: translateX(0);
+  }
+
+  .overlay.overlayVisible {
+    display: block;
+  }
+
+  /* Show hamburger */
+  .menuBtn {
+    display: flex;
+  }
+
+  /* Header adjustments */
+  .topHeader {
+    padding: 0 16px;
+    height: 60px;
+  }
+
+  .headerTitle {
+    font-size: 13px;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .adminProfile span {
+    display: none;
+  }
+
+  /* Content area padding */
+  .contentArea {
+    padding: 16px;
+  }
+
+  /* Page title smaller */
+  .pageTitle {
+    font-size: 1.5rem;
+  }
+
+  /* Table — always scrollable on mobile */
+  .tableContainer {
+    border-radius: 8px;
+  }
+
+  .table th,
+  .table td {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .contentArea {
+    padding: 12px;
+  }
+
+  .pageHeader {
+    margin-bottom: 20px;
+  }
+
+  .pageTitle {
+    font-size: 1.25rem;
+  }
 }
