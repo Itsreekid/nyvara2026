@@ -41,8 +41,8 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY || SERVICE_ROLE_KEY === 'your_service_rol
 }
 
 // ── Edit these ───────────────────────────────────────────────────────────────
-const USERNAME  = 'admin';
-const PASSWORD  = 'nyvara2026';   // ← change to your desired password
+const USERNAME  = envVars['ADMIN_USERNAME'] || 'admin';
+const PASSWORD  = envVars['ADMIN_PASSWORD'] || 'changeme123!'; 
 const FULL_NAME = 'Administrateur';
 // ─────────────────────────────────────────────────────────────────────────────
 
