@@ -252,18 +252,15 @@
    HIGHLIGHTS STRIP
 ══════════════════════════════════════════════════════════ */
 .highlightStrip {
-  display: flex;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 16px;
   padding: 28px 32px;
   background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
   border-radius: 16px;
   margin-bottom: 48px;
 }
-.highlightStrip::-webkit-scrollbar { display: none; }
-.highlightItem { display: flex; flex-direction: column; align-items: center; gap: 10px; flex-shrink: 0; min-width: 100px; }
+.highlightItem { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .highlightIcon {
   width: 52px; height: 52px;
   display: flex; align-items: center; justify-content: center;
@@ -361,9 +358,18 @@
   .trustSub { display: none; }
   .trustTitle { font-size: 11px; }
 
-  /* Highlights: flex scroll (already set on base, just adjust sizing) */
-  .highlightStrip { padding: 20px 16px; gap: 12px; border-radius: 12px; }
-  .highlightItem { min-width: 88px; }
+  /* Highlights: flex scroll on tablet so they don't squash */
+  .highlightStrip {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 20px 16px;
+    gap: 12px;
+    border-radius: 12px;
+  }
+  .highlightStrip::-webkit-scrollbar { display: none; }
+  .highlightItem { flex-shrink: 0; min-width: 88px; }
   .highlightIcon { width: 44px; height: 44px; }
   .highlightLabel { font-size: 10px; }
 
