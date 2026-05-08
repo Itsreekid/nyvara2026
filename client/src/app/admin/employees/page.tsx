@@ -18,7 +18,7 @@ interface AdminUser {
   created_at: string;
 }
 
-const EMPTY_FORM = { username: '', full_name: '', password: '', role: 'employee' as const };
+const EMPTY_FORM = { username: '', full_name: '', password: '', role: 'employee' as 'admin' | 'employee' };
 
 export default function EmployeesPage() {
   const [users, setUsers]     = useState<AdminUser[]>([]);
