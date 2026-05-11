@@ -5,7 +5,7 @@ import { ShoppingBag, Archive, ArchiveRestore, CheckSquare } from 'lucide-react'
 import { supabase } from '@/lib/supabase';
 import Modal from '@/components/ui/Modal';
 import StatusDropdown from '@/components/admin/StatusDropdown';
-import type { Order } from '@/types';
+import type { Order, ColorOption } from '@/types';
 import adminStyles from '../admin.module.css';
 import styles from './orders.module.css';
 
@@ -28,7 +28,9 @@ const DELIVERY_STATUS: Record<string, { label: string; cls: string }> = {
 interface OrderItem {
   id: string;
   quantity: number;
-  products: { title: string; price: number | null; image_url: string | null } | null;
+  quantity_break_price: number | null;
+  selected_color_name: string | null;
+  products: { title: string; price: number | null; discount: number | null; image_url: string | null; color_options: ColorOption[] | null } | null;
 }
 
 interface OrderWithItems extends Order {
@@ -73,7 +75,7 @@ export default function AdminOrdersPage() {
     const to   = from + pageSize - 1;
     const { data, count } = await supabase
       .from('orders')
-      .select('*, order_items(id, quantity, products(title, price, image_url))', { count: 'exact' })
+      .select('*, order_items(id, quantity, selected_color_name, quantity_break_price, products(title, price, discount, image_url, color_options))', { count: 'exact' })
       .eq('archived', viewArchived)
       .order('created_at', { ascending: false })
       .range(from, to);
@@ -180,7 +182,13 @@ export default function AdminOrdersPage() {
   const someSelected = selected.size > 0;
 
   const items      = selectedOrder?.order_items ?? [];
-  const itemsTotal = items.reduce((s, i) => s + (i.products?.price ?? 0) * i.quantity, 0);
+  const itemsTotal = items.reduce((s, i) => {
+    const p = i.products;
+    const unitPrice = i.quantity_break_price ?? (p?.discount != null && p.discount > 0
+      ? (p.price ?? 0) * (1 - p.discount / 100)
+      : (p?.price ?? 0));
+    return s + unitPrice * i.quantity;
+  }, 0);
 
   return (
     <div>
@@ -394,22 +402,37 @@ export default function AdminOrdersPage() {
           </p>
         ) : (
           <div className={styles.itemsList}>
-            {items.map(item => (
-              <div key={item.id} className={styles.itemRow}>
-                {item.products?.image_url && (
-                  <img src={item.products.image_url} alt={item.products?.title ?? ''} className={styles.itemImg} />
-                )}
-                <div className={styles.itemInfo}>
-                  <span className={styles.itemName}>{item.products?.title ?? 'Produit inconnu'}</span>
-                  <span className={styles.itemQty}>Qté : {item.quantity}</span>
+            {items.map(item => {
+              const matchingColor = item.products?.color_options?.find(
+                (co: ColorOption) => co.name === item.selected_color_name
+              );
+              const imageUrl = matchingColor?.image_url || item.products?.image_url;
+
+              return (
+                <div key={item.id} className={styles.itemRow}>
+                  {imageUrl && (
+                    <img src={imageUrl} alt={item.products?.title ?? ''} className={styles.itemImg} />
+                  )}
+                  <div className={styles.itemInfo}>
+                    <span className={styles.itemName}>
+                      {item.products?.title ?? 'Produit inconnu'} {item.selected_color_name ? `(${item.selected_color_name})` : ''}
+                    </span>
+                    <span className={styles.itemQty}>Qté : {item.quantity}</span>
+                  </div>
+                  <div className={styles.itemPrice}>
+                    {item.quantity_break_price != null 
+                      ? `${(item.quantity_break_price * item.quantity).toFixed(3)} TND`
+                      : item.products?.price != null ? (() => {
+                          const disc = item.products.discount;
+                          const unit = disc != null && disc > 0
+                            ? item.products.price * (1 - disc / 100)
+                            : item.products.price;
+                          return `${(unit * item.quantity).toFixed(3)} TND`;
+                        })() : '—'}
+                  </div>
                 </div>
-                <div className={styles.itemPrice}>
-                  {item.products?.price != null
-                    ? `${(item.products.price * item.quantity).toFixed(3)} TND`
-                    : '—'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
             <div className={styles.itemsTotal}>
               <span>Total articles</span>
               <span>{itemsTotal.toFixed(3)} TND</span>

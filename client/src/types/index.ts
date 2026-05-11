@@ -7,6 +7,21 @@ export interface Category {
   name: string | null;
 }
 
+export interface QuantityBreak {
+  min_qty: number;
+  total_price: number;
+  label?: string;
+}
+
+export interface ColorOption {
+  id: string;
+  name: string;
+  hex1: string;
+  hex2?: string | null;
+  image_url: string;
+  image_url2?: string | null;
+}
+
 export interface Product {
   id: string;
   title: string | null;
@@ -24,6 +39,8 @@ export interface Product {
   created_at: string | null;
   category_id: string | null;
   gender: Gender | null;
+  color_options?: ColorOption[] | null;
+  quantity_breaks?: QuantityBreak[] | null;
   // joined
   categories?: Category | null;
 }
@@ -58,6 +75,8 @@ export interface OrderItem {
 export interface CartItem {
   product: Product;
   quantity: number;
+  selected_color?: ColorOption;
+  applied_break?: QuantityBreak;
 }
 
 export interface CartState {
@@ -81,7 +100,7 @@ export interface CreateOrderPayload {
   city: string;
   postal_code?: string;
   country: string;
-  items: { product_id: string; quantity: number }[];
+  items: { product_id: string; quantity: number; selected_color?: ColorOption; quantity_break_price?: number }[];
 }
 
 // ─── Forum Types (future table) ────────────────────────────────────────────

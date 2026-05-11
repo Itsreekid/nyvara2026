@@ -32,7 +32,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   // Discount calculation
   const hasDiscount     = product.discount != null && product.discount > 0;
   const discountedPrice = hasDiscount && product.price != null
-    ? product.price * (1 - product.discount! / 100)
+    ? Math.round(product.price * (1 - product.discount! / 100))
     : null;
 
   // Fire ViewContent once when card enters viewport (retargeting signal)

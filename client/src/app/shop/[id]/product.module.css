@@ -338,6 +338,169 @@
 .mobileCta { display: none; }
 
 /* ══════════════════════════════════════════════════════════
+   COLOR SELECTOR
+══════════════════════════════════════════════════════════ */
+.colorSelector { margin-top: 16px; }
+.multiColorSelector { margin-top: 16px; display: flex; flex-direction: column; gap: 20px; }
+.colorSelectorRow { display: flex; flex-direction: column; gap: 8px; }
+.colorLabel { font-size: 14px; font-weight: 500; color: var(--color-grey); margin: 0; }
+.colorLabel strong { color: var(--color-black); }
+.colorList { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 4px; }
+
+.colorCircle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--color-cream-dark);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.colorCircle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--color-cream);
+}
+
+.colorCircleActive {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px var(--color-gold);
+  border-color: var(--color-white);
+}
+
+/* ══════════════════════════════════════════════════════════
+   QUANTITY BREAKS (OFFRES DE QUANTITÉ)
+══════════════════════════════════════════════════════════ */
+.qbreaksContainer {
+  margin: 20px 0;
+  padding: 16px;
+  background: var(--color-cream);
+  border-radius: 12px;
+  border: 1px solid var(--color-cream-dark);
+}
+
+.qbreaksTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-black);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.qbreaksList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.qbreakItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: white;
+  border: 1.5px solid var(--color-cream-dark);
+  border-radius: 10px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.qbreakItem:hover {
+  border-color: var(--color-gold);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.qbreakActive {
+  border-color: var(--color-gold);
+  background: rgba(200, 150, 30, 0.03);
+  box-shadow: 0 4px 12px rgba(200, 150, 30, 0.1);
+}
+
+.qbreakRadio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--color-cream-dark);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.qbreakActive .qbreakRadio {
+  border-color: var(--color-gold);
+}
+
+.qbreakRadioInner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  transform: scale(0);
+  transition: transform 0.2s ease;
+}
+
+.qbreakActive .qbreakRadioInner {
+  transform: scale(1);
+}
+
+.qbreakInfo {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.qbreakQty {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-black);
+}
+
+.qbreakPrice {
+  display: none;
+}
+
+.qbreakTotal {
+  font-size: 14px;
+  color: var(--color-gold);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.qbreakLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-grey);
+  text-transform: uppercase;
+}
+
+.qbreakPromoBadge {
+  position: absolute;
+  top: -12px;
+  right: 12px;
+  background: linear-gradient(135deg, #d4af37 0%, var(--color-gold) 100%);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 10px rgba(200, 150, 30, 0.4);
+  text-transform: uppercase;
+  z-index: 2;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { opacity: 1; }
+  50% { opacity: 0.8; }
+  100% { opacity: 1; }
+}
+
+/* ══════════════════════════════════════════════════════════
    TABLET ≤ 900px
 ══════════════════════════════════════════════════════════ */
 @media (max-width: 900px) {
@@ -492,3 +655,44 @@
 }
 .mobileBuyBtn:hover { background: var(--color-gold-light); }
 .mobileBuyBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Quantity Break Colors (Inside card) */
+.qbreakColors {
+  margin-top: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid rgba(0,0,0,0.05);
+  padding-top: 12px;
+}
+.qbreakColorRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.qbreakColorLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-grey);
+  min-width: 60px;
+}
+.colorListSmall {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.colorCircleSmall {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: transform 0.2s, border-color 0.2s;
+  padding: 0;
+}
+.colorCircleSmall:hover { transform: scale(1.1); }
+.colorCircleSmallActive {
+  border: 2px solid var(--color-gold) !important;
+  transform: scale(1.15);
+  box-shadow: 0 0 5px rgba(200,150,30,0.3);
+}

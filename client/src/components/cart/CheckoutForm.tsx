@@ -63,6 +63,7 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
       items: items.map(item => ({
         product_id: item.product.id,
         quantity: item.quantity,
+        selected_color: item.selected_color,
       })),
     };
 

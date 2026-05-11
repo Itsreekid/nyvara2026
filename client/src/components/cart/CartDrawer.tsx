@@ -110,7 +110,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               {/* Items list */}
               <div className={styles.items}>
                 {items.map(item => (
-                  <CartItem key={item.product.id} item={item} />
+                  <CartItem key={item.product.id + (item.selected_color?.id || '')} item={item} />
                 ))}
               </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { Product, Category } from '@/types';
+import type { Product, Category, ColorOption } from '@/types';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ImageUpload from '@/components/admin/ImageUpload';
@@ -16,6 +16,7 @@ type FormState = {
   cost_price: string;
   stock: string;
   discount: string;
+  final_price: string;   // UI helper — auto-calculated, not saved
   description: string;
   image_url: string;
   gender: string;
@@ -27,7 +28,7 @@ type FormState = {
 };
 
 const emptyForm: FormState = {
-  title: '', price: '', cost_price: '', stock: '0', discount: '',
+  title: '', price: '', cost_price: '', stock: '0', discount: '', final_price: '',
   description: '', image_url: '', gender: 'unisex', category_id: '',
   badge: '', features: '', rating: '', review_count: '',
 };
@@ -54,6 +55,11 @@ export default function AdminProductsPage() {
   const [uploadingGallery, setUploadingGallery] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  // Colors
+  const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
+  // Quantity Breaks
+  const [quantityBreaks, setQuantityBreaks] = useState<QuantityBreak[]>([]);
+
   const fetchAll = () => {
     setLoading(true);
     Promise.all([
@@ -72,6 +78,9 @@ export default function AdminProductsPage() {
     setEditingProduct(null);
     setFormData(emptyForm);
     setGalleryImages([]);
+    setSpecRows([]);
+    setColorOptions([]);
+    setQuantityBreaks([]);
     setModalOpen(true);
   };
 
@@ -83,6 +92,9 @@ export default function AdminProductsPage() {
       cost_price:   p.cost_price   != null ? String(p.cost_price)  : '',
       stock:        p.stock        != null ? String(p.stock)       : '0',
       discount:     p.discount     != null ? String(p.discount)    : '',
+      final_price:  p.price != null && p.discount != null && p.discount > 0
+        ? String(Math.round(p.price * (1 - p.discount / 100)))
+        : '',
       description:  p.description  ?? '',
       image_url:    p.image_url    ?? '',
       gender:       p.gender       ?? 'unisex',
@@ -102,6 +114,8 @@ export default function AdminProductsPage() {
       .eq('product_id', p.id)
       .order('sort_order');
     setGalleryImages((data as GalleryImage[]) ?? []);
+    setColorOptions(p.color_options ?? []);
+    setQuantityBreaks(p.quantity_breaks ?? []);
     setModalOpen(true);
   };
 
@@ -128,6 +142,8 @@ export default function AdminProductsPage() {
       rating:       formData.rating       ? parseFloat(formData.rating)       : null,
       review_count: formData.review_count ? parseInt(formData.review_count)   : null,
       specs:        Object.keys(specsObj).length > 0 ? specsObj : null,
+      color_options: colorOptions.length > 0 ? colorOptions : null,
+      quantity_breaks: quantityBreaks.length > 0 ? quantityBreaks : null,
     };
 
     const { error } = editingProduct
@@ -191,6 +207,37 @@ export default function AdminProductsPage() {
   const margin = (p: Product) => {
     if (p.price == null || p.cost_price == null) return null;
     return p.price - p.cost_price;
+  };
+
+  // When discount % changes → recompute final_price
+  const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const disc = e.target.value;
+    const price = parseFloat(formData.price);
+    const fp = disc !== '' && !isNaN(price) && price > 0
+      ? String(Math.round(price * (1 - parseFloat(disc) / 100)))
+      : '';
+    setFormData(prev => ({ ...prev, discount: disc, final_price: fp }));
+  };
+
+  // When final_price changes → recompute discount %
+  const handleFinalPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fp = e.target.value;
+    const price = parseFloat(formData.price);
+    // Use 4 decimal places for precision so the round-trip calculation stays accurate
+    const disc = fp !== '' && !isNaN(price) && price > 0
+      ? String(+(100 - (parseFloat(fp) / price) * 100).toFixed(4))
+      : '';
+    setFormData(prev => ({ ...prev, final_price: fp, discount: disc }));
+  };
+
+  // When base price changes → keep final_price consistent if discount is set
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const price = e.target.value;
+    const disc = parseFloat(formData.discount);
+    const fp = !isNaN(disc) && disc > 0 && parseFloat(price) > 0
+      ? String(Math.round(parseFloat(price) * (1 - disc / 100)))
+      : '';
+    setFormData(prev => ({ ...prev, price, final_price: fp }));
   };
 
   const set = (field: keyof FormState) =>
@@ -284,16 +331,26 @@ export default function AdminProductsPage() {
 
           <div className={styles.priceRow}>
             <div className={styles.inputGroup}>
-              <label>Prix de vente (TND)</label>
-              <input required type="number" step="0.001" className={styles.input} value={formData.price} onChange={set('price')} />
+              <label>Prix original (TND)</label>
+              <input required type="number" step="0.001" className={styles.input} value={formData.price} onChange={handlePriceChange} placeholder="Ex: 89.900" />
+            </div>
+            <div className={styles.inputGroup}>
+              <label>Remise (%)</label>
+              <input type="number" step="0.1" min="0" max="100" className={styles.input} placeholder="Ex: 20" value={formData.discount} onChange={handleDiscountChange} />
+            </div>
+            <div className={styles.inputGroup}>
+              <label>Prix après remise (TND) ↔ auto</label>
+              <input
+                type="number" step="0.001" className={styles.input}
+                placeholder="Calcul automatique"
+                value={formData.final_price}
+                onChange={handleFinalPriceChange}
+                style={{ borderColor: formData.final_price ? 'var(--color-gold)' : undefined }}
+              />
             </div>
             <div className={styles.inputGroup}>
               <label>Prix d&apos;achat / coût (TND)</label>
               <input type="number" step="0.001" className={styles.input} placeholder="0.000" value={formData.cost_price} onChange={set('cost_price')} />
-            </div>
-            <div className={styles.inputGroup}>
-              <label>Remise (%)</label>
-              <input type="number" step="1" min="0" max="100" className={styles.input} placeholder="Ex: 20" value={formData.discount} onChange={set('discount')} />
             </div>
             <div className={styles.inputGroup}>
               <label>Stock</label>
@@ -386,6 +443,116 @@ export default function AdminProductsPage() {
                 onClick={() => setSpecRows(prev => [...prev, { key: '', value: '' }])}
               >
                 + Ajouter une caractéristique
+              </button>
+            </div>
+          </div>
+
+          {/* Color Options */}
+          <div className={styles.inputGroup}>
+            <label>Variantes de couleurs (Optionnel)</label>
+            <div className={styles.colorOptionsList}>
+              {colorOptions.map((co, i) => (
+                <div key={co.id} className={styles.colorOptionCard}>
+                  <div className={styles.colorOptionImage}>
+                    <p className={styles.pickerLabel} style={{ marginBottom: 4 }}>Image 1 <span style={{opacity:0.6}}>(vide = image principale)</span></p>
+                    <ImageUpload
+                      value={co.image_url}
+                      onChange={url => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, image_url: url } : c))}
+                      onUploading={status => setUploadingImage(status)}
+                    />
+                  </div>
+                  <div className={styles.colorOptionImage}>
+                    <p className={styles.pickerLabel} style={{ marginBottom: 4 }}>Image 2 (opt)</p>
+                    <ImageUpload
+                      value={co.image_url2 || ''}
+                      onChange={url => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, image_url2: url || null } : c))}
+                      onUploading={status => setUploadingImage(status)}
+                    />
+                  </div>
+                  <div className={styles.colorOptionDetails}>
+                    <input className={styles.input} placeholder="Nom (ex: Noir / Bleu)" value={co.name} onChange={e => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, name: e.target.value } : c))} />
+                    <div className={styles.colorPickers}>
+                      <div className={styles.pickerWrap}>
+                        <label className={styles.pickerLabel}>Couleur 1</label>
+                        <input type="color" value={co.hex1} onChange={e => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, hex1: e.target.value } : c))} title="Couleur Principale" className={styles.colorInput} />
+                      </div>
+                      <div className={styles.pickerWrap}>
+                        <label className={styles.pickerLabel}>Couleur 2 (opt)</label>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <input type="color" value={co.hex2 || '#ffffff'} onChange={e => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, hex2: e.target.value } : c))} title="Couleur Secondaire (Optionnelle)" className={styles.colorInput} />
+                          {co.hex2 && (
+                            <button type="button" className={styles.specDelBtn} onClick={() => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, hex2: null } : c))} title="Retirer la 2ème couleur">✕</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <button type="button" className={styles.specDelBtn} style={{ width: '100%' }} onClick={() => setColorOptions(prev => prev.filter((_, idx) => idx !== i))}>Supprimer cette variante</button>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                className={styles.specAddBtn}
+                onClick={() => setColorOptions(prev => [...prev, { id: Math.random().toString(36).substring(2, 9), name: '', hex1: '#000000', hex2: null, image_url: '', image_url2: null }])}
+              >
+                + Ajouter une couleur
+              </button>
+            </div>
+          </div>
+
+          {/* Quantity Breaks */}
+          <div className={styles.inputGroup}>
+            <label>Offres de quantité (ex: 2 paires pour 110 TND)</label>
+            <div className={styles.specEditor}>
+              {quantityBreaks.map((qb, i) => (
+                <div key={i} className={styles.specEditorRow} style={{ gap: '8px', marginBottom: '12px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '10px', color: 'var(--color-grey)', display: 'block', marginBottom: '4px' }}>Qté min</label>
+                    <input
+                      type="number"
+                      className={styles.input}
+                      placeholder="Qté min"
+                      value={qb.min_qty}
+                      onChange={e => setQuantityBreaks(prev => prev.map((q, idx) => idx === i ? { ...q, min_qty: parseInt(e.target.value) || 0 } : q))}
+                    />
+                  </div>
+                  <div style={{ flex: 1.2 }}>
+                    <label style={{ fontSize: '10px', color: 'var(--color-grey)', display: 'block', marginBottom: '4px' }}>Prix TOTAL (TND)</label>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="number"
+                        step="0.001"
+                        className={styles.input}
+                        placeholder="Prix total"
+                        value={qb.total_price}
+                        onChange={e => setQuantityBreaks(prev => prev.map((q, idx) => idx === i ? { ...q, total_price: parseFloat(e.target.value) || 0 } : q))}
+                      />
+                      {parseFloat(formData.price) > 0 && qb.total_price > 0 && (
+                        <div style={{ fontSize: '10px', color: 'var(--color-gold)', marginTop: '2px', fontWeight: 'bold' }}>
+                          Soit -{Math.round(100 - (qb.total_price / (parseFloat(formData.price) * qb.min_qty)) * 100)}% du prix original
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '10px', color: 'var(--color-grey)', display: 'block', marginBottom: '4px' }}>Badge (opt)</label>
+                    <input
+                      type="text"
+                      className={styles.input}
+                      placeholder="ex: -10%"
+                      value={qb.label || ''}
+                      onChange={e => setQuantityBreaks(prev => prev.map((q, idx) => idx === i ? { ...q, label: e.target.value } : q))}
+                    />
+                  </div>
+                  <button type="button" className={styles.specDelBtn} style={{ alignSelf: 'flex-end', marginBottom: '8px' }} onClick={() => setQuantityBreaks(prev => prev.filter((_, idx) => idx !== i))}>✕</button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className={styles.specAddBtn}
+                onClick={() => setQuantityBreaks(prev => [...prev, { min_qty: 2, total_price: 0, label: '' }])}
+              >
+                + Ajouter un palier de quantité
               </button>
             </div>
           </div>

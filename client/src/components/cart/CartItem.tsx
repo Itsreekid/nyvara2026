@@ -21,9 +21,9 @@ export default function CartItem({ item }: CartItemProps) {
     <div className={styles.item}>
       {/* Image */}
       <div className={styles.imageWrap}>
-        {product.image_url ? (
+        {(item.selected_color?.image_url || product.image_url) ? (
           <Image
-            src={product.image_url}
+            src={item.selected_color?.image_url || product.image_url!}
             alt={product.title ?? 'Product'}
             fill
             className={styles.image}
@@ -45,14 +45,25 @@ export default function CartItem({ item }: CartItemProps) {
             {product.gender.charAt(0).toUpperCase() + product.gender.slice(1)}
           </p>
         )}
-        <p className={styles.price}>{formatTND((product.price ?? 0) * quantity)}</p>
+        {item.selected_color && (
+          <p className={styles.gender} style={{ color: 'var(--color-charcoal)' }}>
+            Couleur : {item.selected_color.name}
+          </p>
+        )}
+        <p className={styles.price}>
+          {formatTND(
+            (product.discount != null && product.discount > 0
+              ? (product.price ?? 0) * (1 - product.discount / 100)
+              : (product.price ?? 0)) * quantity
+          )}
+        </p>
       </div>
 
       {/* Quantity controls */}
       <div className={styles.controls}>
         <button
           className={styles.qtyBtn}
-          onClick={() => updateQuantity(product.id, quantity - 1)}
+          onClick={() => updateQuantity(product.id, item.selected_color?.id, quantity - 1)}
           aria-label="Decrease quantity"
         >
           <Minus size={12} />
@@ -60,14 +71,14 @@ export default function CartItem({ item }: CartItemProps) {
         <span className={styles.qty}>{quantity}</span>
         <button
           className={styles.qtyBtn}
-          onClick={() => updateQuantity(product.id, quantity + 1)}
+          onClick={() => updateQuantity(product.id, item.selected_color?.id, quantity + 1)}
           aria-label="Increase quantity"
         >
           <Plus size={12} />
         </button>
         <button
           className={styles.removeBtn}
-          onClick={() => removeItem(product.id)}
+          onClick={() => removeItem(product.id, item.selected_color?.id)}
           aria-label="Remove item"
         >
           <Trash2 size={14} />

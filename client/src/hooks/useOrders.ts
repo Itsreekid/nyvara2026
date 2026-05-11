@@ -42,17 +42,38 @@ export function useCreateOrder() {
       const productIds = payload.items.map(i => i.product_id);
       const { data: products, error: prodErr } = await supabase
         .from('products')
-        .select('id, price')
+        .select('id, price, discount, quantity_breaks')
         .in('id', productIds);
 
       if (prodErr) throw prodErr;
 
-      const priceMap = Object.fromEntries(
-        (products ?? []).map(p => [p.id, p.price ?? 0])
-      );
+      // Map to store calculated unit price per item (takes quantity breaks into account)
+      const productTotals: Record<string, number> = {};
+      payload.items.forEach(item => {
+        productTotals[item.product_id] = (productTotals[item.product_id] || 0) + item.quantity;
+      });
+
+      const itemPrices = payload.items.map(i => {
+        const p = (products ?? []).find(prod => prod.id === i.product_id);
+        if (!p) return { id: i.product_id, price: 0 };
+
+        const totalQty = productTotals[i.product_id];
+        const breaks = (p.quantity_breaks || []) as any[];
+        const applicableBreak = [...breaks]
+          .sort((a, b) => b.min_qty - a.min_qty)
+          .find(qb => totalQty >= qb.min_qty);
+
+        if (applicableBreak) {
+          return { id: i.product_id, price: applicableBreak.total_price / totalQty };
+        } else {
+          const hasDiscount = p.discount != null && p.discount > 0;
+          const finalPrice = hasDiscount ? (p.price ?? 0) * (1 - p.discount / 100) : (p.price ?? 0);
+          return { id: i.product_id, price: finalPrice };
+        }
+      });
 
       const total_price = payload.items.reduce(
-        (sum, i) => sum + (priceMap[i.product_id] ?? 0) * i.quantity,
+        (sum, item, idx) => sum + itemPrices[idx].price * item.quantity,
         0
       );
 
@@ -74,10 +95,12 @@ export function useCreateOrder() {
       if (orderErr) throw orderErr;
 
       // 3. Insert order items
-      const orderItems = payload.items.map(i => ({
+      const orderItems = payload.items.map((i, idx) => ({
         order_id:   order.id,
         product_id: i.product_id,
         quantity:   i.quantity,
+        selected_color_name: i.selected_color?.name || null,
+        quantity_break_price: itemPrices[idx].price, // Store the special price applied
       }));
 
       const { error: itemsErr } = await supabase

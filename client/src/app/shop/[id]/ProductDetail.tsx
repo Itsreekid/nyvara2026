@@ -8,7 +8,7 @@ import { Heart, ShoppingBag, ArrowLeft, Star, Truck, RotateCcw, ShieldCheck, Min
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
 import ProductCard from '@/components/shop/ProductCard';
-import type { Product } from '@/types';
+import type { Product, ColorOption } from '@/types';
 import styles from './product.module.css';
 
 const formatTND = (price: number | null) => {
@@ -58,7 +58,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
   const hasDiscount     = product.discount != null && product.discount > 0;
   const discountedPrice = hasDiscount && product.price != null
-    ? product.price * (1 - product.discount! / 100)
+    ? Math.round(product.price * (1 - product.discount! / 100))
     : null;
 
   const inStockBool = product.stock != null && product.stock > 0;
@@ -71,16 +71,44 @@ export default function ProductDetail({ product, gallery, related }: Props) {
   // Parse specs
   const specEntries = product.specs ? Object.entries(product.specs) : [];
 
-  // Images
+  // Colors — support multiple selections for bundles
+  const [selectedColors, setSelectedColors] = useState<(ColorOption | null)[]>([]);
+  const [qty, setQty] = useState(1);
+
+  // Initialize/resize selectedColors when qty changes
+  useEffect(() => {
+    setSelectedColors(prev => {
+      const next = [...prev];
+      if (next.length > qty) return next.slice(0, qty);
+      while (next.length < qty) next.push(null);
+      return next;
+    });
+  }, [qty]);
+
+  // For the gallery, we'll track the last selected color to know which image to show
+  const [lastSelectedColor, setLastSelectedColor] = useState<ColorOption | null>(null);
+
+  // Build one flat list: primary → all color images → extra gallery
   const allImages: string[] = [
     ...(product.image_url ? [product.image_url] : []),
+    ...(product.color_options ?? []).flatMap(co => [
+      ...(co.image_url ? [co.image_url] : []),
+      ...(co.image_url2 ? [co.image_url2] : []),
+    ]),
     ...gallery.map(g => g.image_url),
   ];
+
+  // Map color id → index of its first image in allImages (for jumping on swatch click)
+  const colorImageIndex: Record<string, number> = {};
+  let imgIdx = product.image_url ? 1 : 0;
+  for (const co of product.color_options ?? []) {
+    if (co.image_url) { colorImageIndex[co.id] = imgIdx; imgIdx++; }
+    if (co.image_url2) imgIdx++;
+  }
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [isPaused,  setIsPaused]  = useState(false);
   const [isZoomed,  setIsZoomed]  = useState(false);
-  const [qty,       setQty]       = useState(1);
   const imageWrapRef = useRef<HTMLDivElement>(null);
   const activeImage  = allImages[activeIdx] ?? null;
 
@@ -116,13 +144,17 @@ export default function ProductDetail({ product, gallery, related }: Props) {
   };
 
   const handleAddToCart = () => {
-    for (let i = 0; i < qty; i++) addItem(product);
+    selectedColors.forEach(color => {
+      addItem(product, color ?? undefined);
+    });
     setQty(1);
   };
 
   // Direct checkout: add to cart then jump straight to checkout form
   const handleBuyNow = () => {
-    for (let i = 0; i < qty; i++) addItem(product);
+    selectedColors.forEach(color => {
+      addItem(product, color ?? undefined);
+    });
     router.push('/cart?checkout=true');
   };
 
@@ -225,6 +257,28 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                 )}
               </div>
             )}
+            {/* Color Selector (Only for 1 unit) */}
+            {qty === 1 && product.color_options && product.color_options.length > 0 && (
+              <div className={styles.colorSelector}>
+                <p className={styles.colorLabel}>Couleur : <strong>{selectedColors[0]?.name || 'Veuillez choisir'}</strong></p>
+                <div className={styles.colorList}>
+                  {product.color_options.map(co => (
+                    <button
+                      key={co.id}
+                      className={`${styles.colorCircle} ${selectedColors[0]?.id === co.id ? styles.colorCircleActive : ''}`}
+                      onClick={() => {
+                        const newColors = [co];
+                        setSelectedColors(newColors);
+                        setLastSelectedColor(co);
+                        setActiveIdx(colorImageIndex[co.id] ?? 0);
+                      }}
+                      style={co.hex2 ? { background: `linear-gradient(135deg, ${co.hex1} 50%, ${co.hex2} 50%)` } : { background: co.hex1 }}
+                      title={co.name}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
 
             <hr className={styles.divider} />
 
@@ -262,8 +316,81 @@ export default function ProductDetail({ product, gallery, related }: Props) {
               {inStockBool ? `✓ En stock` : '✗ Rupture de stock'}
             </p>
 
-            {/* Quantity */}
-            {inStockBool && (
+            {/* Quantity Breaks (Offres de quantité) */}
+            {product.quantity_breaks && product.quantity_breaks.length > 0 && inStockBool && (
+              <div className={styles.qbreaksContainer}>
+                <p className={styles.qbreaksTitle}>Offres spéciales :</p>
+                <div className={styles.qbreaksList}>
+                  {/* Option 1: Standard */}
+                  <div 
+                    className={`${styles.qbreakItem} ${qty === 1 ? styles.qbreakActive : ''}`}
+                    onClick={() => setQty(1)}
+                  >
+                    <div className={styles.qbreakRadio}>
+                      <div className={styles.qbreakRadioInner} />
+                    </div>
+                    <div className={styles.qbreakInfo}>
+                      <span className={styles.qbreakQty}>1 unité</span>
+                      <span className={styles.qbreakPrice}>{formatTND(discountedPrice || product.price)}</span>
+                    </div>
+                    <span className={styles.qbreakLabel}>Prix standard</span>
+                  </div>
+
+                  {/* Options: Breaks */}
+                  {product.quantity_breaks.map((qb, idx) => (
+                    <div 
+                      key={idx}
+                      className={`${styles.qbreakItem} ${qty === qb.min_qty ? styles.qbreakActive : ''}`}
+                      onClick={() => setQty(qb.min_qty)}
+                    >
+                      <div className={styles.qbreakRadio}>
+                        <div className={styles.qbreakRadioInner} />
+                      </div>
+                      <div className={styles.qbreakInfo}>
+                        <span className={styles.qbreakQty}>{qb.min_qty} unités</span>
+                        <span className={styles.qbreakTotal}>{formatTND(qb.total_price)}</span>
+                        
+                        {/* Multi-color selection INSIDE the card when active */}
+                        {qty === qb.min_qty && product.color_options && (
+                          <div className={styles.qbreakColors}>
+                            {Array.from({ length: qb.min_qty }).map((_, uIdx) => (
+                              <div key={uIdx} className={styles.qbreakColorRow}>
+                                <span className={styles.qbreakColorLabel}>Paire {uIdx + 1} :</span>
+                                <div className={styles.colorListSmall}>
+                                  {product.color_options?.map(co => (
+                                    <button
+                                      key={co.id}
+                                      type="button"
+                                      className={`${styles.colorCircleSmall} ${selectedColors[uIdx]?.id === co.id ? styles.colorCircleSmallActive : ''}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const newColors = [...selectedColors];
+                                        newColors[uIdx] = co;
+                                        setSelectedColors(newColors);
+                                        setLastSelectedColor(co);
+                                        setActiveIdx(colorImageIndex[co.id] ?? 0);
+                                      }}
+                                      style={co.hex2 ? { background: `linear-gradient(135deg, ${co.hex1} 50%, ${co.hex2} 50%)` } : { background: co.hex1 }}
+                                      title={co.name}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {qb.label && <span className={styles.qbreakPromoBadge}>{qb.label}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Selection des couleurs après l'offre - REMOVED from here, now inside cards */}
+
+            {/* Quantity Selector (Show only if no breaks) */}
+            {inStockBool && (!product.quantity_breaks || product.quantity_breaks.length === 0) && (
               <div className={styles.qtyRow}>
                 <span className={styles.qtyLabel}>Quantité :</span>
                 <div className={styles.qtyControl}>
