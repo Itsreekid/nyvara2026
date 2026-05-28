@@ -103,7 +103,7 @@ function ShopContent() {
           </aside>
 
           <main className={styles.main}>
-            <SortBar sort={sort} onChange={setSort} />
+            <SortBar sort={sort} onSortChange={setSort} total={totalCount ?? 0} />
 
             {/* Product grid */}
             <ProductGrid products={products} loading={loading} error={error} />
