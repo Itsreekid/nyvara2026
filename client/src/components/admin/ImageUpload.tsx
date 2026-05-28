@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import styles from './ImageUpload.module.css';
@@ -95,8 +96,14 @@ export default function ImageUpload({ value, onChange, onUploading }: ImageUploa
   if (value) {
     return (
       <div className={styles.previewContainer}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={value} alt="Aperçu" className={styles.previewImage} />
+        <Image
+          src={value}
+          alt="Aperçu"
+          width={200}
+          height={200}
+          className={styles.previewImage}
+          unoptimized
+        />
         <button type="button" className={styles.removeBtn} onClick={handleRemove} title="Supprimer l'image">
           <X size={18} />
         </button>

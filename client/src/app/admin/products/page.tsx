@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
 import type { Product, Category, ColorOption, QuantityBreak } from '@/types';
 import Button from '@/components/ui/Button';
@@ -290,7 +291,14 @@ export default function AdminProductsPage() {
               return (
                 <tr key={p.id}>
                   <td>
-                    <img src={p.image_url || ''} alt={p.title || ''} className={styles.productImage} />
+                    <Image
+                      src={p.image_url || ''}
+                      alt={p.title || 'Product'}
+                      width={48}
+                      height={48}
+                      className={styles.productImage}
+                      unoptimized={!p.image_url} // Skip optimization for empty images
+                    />
                   </td>
                   <td>{p.title}</td>
                   <td>{p.categories?.name ?? <span className={styles.noCost}>—</span>}</td>
@@ -587,8 +595,14 @@ export default function AdminProductsPage() {
               <div className={styles.galleryGrid}>
                 {galleryImages.map(img => (
                   <div key={img.id} className={styles.galleryThumb}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img.image_url} alt="" />
+                    <Image
+                      src={img.image_url}
+                      alt="Gallery image"
+                      width={80}
+                      height={80}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      unoptimized
+                    />
                     <button
                       type="button"
                       className={styles.galleryDelBtn}

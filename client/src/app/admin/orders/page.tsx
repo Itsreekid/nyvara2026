@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Image from 'next/image';
 import { ShoppingBag, Archive, ArchiveRestore, CheckSquare } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import Modal from '@/components/ui/Modal';
@@ -411,7 +412,14 @@ export default function AdminOrdersPage() {
               return (
                 <div key={item.id} className={styles.itemRow}>
                   {imageUrl && (
-                    <img src={imageUrl} alt={item.products?.title ?? ''} className={styles.itemImg} />
+                    <Image
+                      src={imageUrl}
+                      alt={item.products?.title ?? 'Produit'}
+                      width={48}
+                      height={48}
+                      className={styles.itemImg}
+                      unoptimized
+                    />
                   )}
                   <div className={styles.itemInfo}>
                     <span className={styles.itemName}>

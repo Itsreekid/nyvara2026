@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Editorial, Roboto } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -6,6 +7,23 @@ import { CartProvider } from '@/context/CartContext';
 import { WishlistProvider } from '@/context/WishlistContext';
 import MainWrapper from '@/components/layout/MainWrapper';
 import FacebookPixel from '@/components/analytics/FacebookPixel';
+
+// Optimize fonts: preload and specify weights
+const editorial = Editorial({
+  subsets: ['latin'],
+  weight: '400',
+  variable: '--font-editorial',
+  preload: true,
+  display: 'swap', // Use system font while loading
+});
+
+const roboto = Roboto({
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-roboto',
+  preload: true,
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: {
@@ -26,11 +44,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
+    <html lang="fr" className={`${editorial.variable} ${roboto.variable}`}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <FacebookPixel />
+        {/* Preconnect to external origins */}
+        <link rel="preconnect" href="https://vkrgfqjsixjsieqzykcx.supabase.co" />
+        <link rel="dns-prefetch" href="https://connect.facebook.net" />
       </head>
       <body>
         <CartProvider>
@@ -42,6 +60,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Footer />
           </WishlistProvider>
         </CartProvider>
+        <FacebookPixel />
       </body>
     </html>
   );

@@ -1,14 +1,24 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 import FilterSidebar from '@/components/shop/FilterSidebar';
-import ProductGrid   from '@/components/shop/ProductGrid';
+import ProductSkeleton from '@/components/shop/ProductSkeleton';
 import SortBar       from '@/components/shop/SortBar';
 import { useProducts } from '@/hooks/useProducts';
 import type { ProductFilters, SortOption } from '@/types';
 import styles from './shop.module.css';
+
+const ProductGrid = dynamic(() => import('@/components/shop/ProductGrid'), {
+  loading: () => (
+    <div className={styles.gridSkeleton}>
+      {[1, 2, 3, 4, 5, 6].map(i => <ProductSkeleton key={i} />)}
+    </div>
+  ),
+  ssr: true,
+});
 
 function ShopContent() {
   const searchParams = useSearchParams();
