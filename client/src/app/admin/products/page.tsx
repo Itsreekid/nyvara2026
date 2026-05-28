@@ -254,7 +254,8 @@ export default function AdminProductsPage() {
       </div>
 
       <div className={adminStyles.tableContainer}>
-        <table className={adminStyles.table}>
+        <div className={adminStyles.tableScrollWrapper}>
+          <table className={adminStyles.table}>
           <thead>
             <tr>
               <th>Image</th>
@@ -315,6 +316,7 @@ export default function AdminProductsPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* Add / Edit Modal */}
