@@ -10,10 +10,12 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
   const [products, setProducts]   = useState<Product[]>([]);
   const [loading, setLoading]     = useState(true);
   const [error, setError]         = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
 
   const fetchProducts = useCallback(async () => {
     if (!isSupabaseConfigured) {
       setProducts([]);
+      setTotalCount(0);
       setLoading(false);
       return;
     }
@@ -21,9 +23,14 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
     setError(null);
 
     try {
+      // Pagination support
+      const pageSize = (filters as any)?.pageSize || 999999;
+      const page = (filters as any)?.page || 0;
+      const offset = page * pageSize;
+
       let query = supabase
         .from('products')
-        .select('*, categories(id, name)');
+        .select('*, categories(id, name)', { count: 'exact' });
 
       if (filters?.category_id)
         query = query.eq('category_id', filters.category_id);
@@ -48,19 +55,23 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
         default:           query = query.order('created_at', { ascending: false }); break;
       }
 
-      const { data, error: err } = await query;
+      // Apply pagination
+      query = query.range(offset, offset + pageSize - 1);
+
+      const { data, error: err, count } = await query;
       if (err) throw err;
       setProducts((data as Product[]) ?? []);
+      setTotalCount(count ?? 0);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load products');
     } finally {
       setLoading(false);
     }
-  }, [filters?.category_id, filters?.gender, filters?.min_price, filters?.max_price, filters?.search, sort]);
+  }, [filters?.category_id, filters?.gender, filters?.min_price, filters?.max_price, filters?.search, sort, (filters as any)?.page, (filters as any)?.pageSize]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
-  return { products, loading, error, refetch: fetchProducts };
+  return { products, loading, error, totalCount, refetch: fetchProducts };
 }
 
 // ─── useProduct (single) ──────────────────────────────────────────────────────

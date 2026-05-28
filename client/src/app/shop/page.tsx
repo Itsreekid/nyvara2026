@@ -25,18 +25,27 @@ function ShopContent() {
   const initialGender = (searchParams.get('gender') as ProductFilters['gender']) ?? 'all';
   const initialSearch = searchParams.get('search') ?? undefined;
 
-  const [filters, setFilters] = useState<ProductFilters>({
+  const [filters, setFilters] = useState<ProductFilters & { page?: number; pageSize?: number }>({
     gender: initialGender,
     search: initialSearch,
+    page: 0,
+    pageSize: 20,
   });
   const [sort, setSort] = useState<SortOption>('newest');
 
-  const { products, loading, error } = useProducts(filters, sort);
+  const { products, loading, error, totalCount } = useProducts(filters, sort);
 
   const handleReset = useCallback(() => {
-    setFilters({ gender: 'all' });
+    setFilters({ gender: 'all', page: 0, pageSize: 20 });
     setSort('newest');
   }, []);
+
+  const totalPages = Math.ceil((totalCount || 0) / (filters.pageSize || 20));
+
+  const handlePageChange = (newPage: number) => {
+    setFilters(prev => ({ ...prev, page: newPage }));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className={styles.page}>
@@ -57,7 +66,7 @@ function ShopContent() {
         <div className={styles.mobileFilterRow}>
           <FilterSidebar
             filters={filters}
-            onChange={setFilters}
+            onChange={(newFilters) => setFilters({ ...newFilters, page: 0, pageSize: 20 })}
             onReset={handleReset}
           />
         </div>
@@ -67,7 +76,7 @@ function ShopContent() {
           <aside className={styles.sidebar}>
             <FilterSidebar
               filters={filters}
-              onChange={setFilters}
+              onChange={(newFilters) => setFilters({ ...newFilters, page: 0, pageSize: 20 })}
               onReset={handleReset}
             />
           </aside>
@@ -75,11 +84,36 @@ function ShopContent() {
           {/* Products */}
           <div className={styles.main}>
             <SortBar
-              total={products.length}
+              total={totalCount || products.length}
               sort={sort}
               onSortChange={setSort}
             />
             <ProductGrid products={products} loading={loading} error={error} />
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className={styles.pagination}>
+                <button 
+                  onClick={() => handlePageChange(Math.max(0, (filters.page || 0) - 1))}
+                  disabled={(filters.page || 0) === 0}
+                  className={styles.paginationBtn}
+                >
+                  ← Précédent
+                </button>
+                
+                <div className={styles.paginationInfo}>
+                  Page {(filters.page || 0) + 1} sur {totalPages}
+                </div>
+                
+                <button 
+                  onClick={() => handlePageChange((filters.page || 0) + 1)}
+                  disabled={(filters.page || 0) >= totalPages - 1}
+                  className={styles.paginationBtn}
+                >
+                  Suivant →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
