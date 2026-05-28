@@ -216,8 +216,11 @@ export default function AdminProductsPage() {
   };
 
   const margin = (p: Product) => {
-    if (p.price == null || p.cost_price == null) return null;
-    return p.price - p.cost_price;
+    if (p.cost_price == null) return null;
+    // Use final_price if available (price after discount), otherwise use original price
+    const sellingPrice = p.final_price ?? p.price;
+    if (sellingPrice == null) return null;
+    return sellingPrice - p.cost_price;
   };
 
   // When discount % changes → recompute final_price
