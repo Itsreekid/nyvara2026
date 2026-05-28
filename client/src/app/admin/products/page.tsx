@@ -296,7 +296,7 @@ export default function AdminProductsPage() {
                       ? <span style={{ color: 'var(--color-charcoal)' }}>{p.stock}</span>
                       : <span style={{ color: 'var(--color-error)' }}>Rupture</span>}
                   </td>
-                  <td>{p.price?.toFixed(3)} TND</td>
+                  <td>{(p.final_price ?? p.price)?.toFixed(3)} TND</td>
                   <td>
                     {p.cost_price != null
                       ? <span className={styles.costPrice}>{p.cost_price.toFixed(3)} TND</span>
@@ -345,7 +345,7 @@ export default function AdminProductsPage() {
           <div className={styles.priceRow}>
             <div className={styles.inputGroup}>
               <label>Prix original (TND)</label>
-              <input required type="number" step="0.001" className={styles.input} value={formData.price} onChange={handlePriceChange} placeholder="Ex: 89.900" />
+              <input required type="number" step="0.001" className={styles.input} value={formData.price} onChange={set('price')} placeholder="Ex: 89.900" />
             </div>
             <div className={styles.inputGroup}>
               <label>Prix après remise (TND)</label>
@@ -353,7 +353,7 @@ export default function AdminProductsPage() {
                 type="number" step="0.001" className={styles.input}
                 placeholder="Prix réduit"
                 value={formData.final_price}
-                onChange={handleFinalPriceChange}
+                onChange={set('final_price')}
                 style={{ borderColor: formData.final_price ? 'var(--color-gold)' : undefined }}
               />
             </div>
@@ -375,8 +375,6 @@ export default function AdminProductsPage() {
               <label>Stock</label>
               <input type="number" step="1" className={styles.input} value={formData.stock} onChange={set('stock')} />
             </div>
-
-          <div className={styles.priceRow}>
             <div className={styles.inputGroup}>
               <label>Genre</label>
               <select className={styles.input} value={formData.gender} onChange={set('gender')}>
