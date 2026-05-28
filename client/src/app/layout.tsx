@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Editorial, Roboto } from 'next/font/google';
+import { Cormorant_Garamond, Roboto } from 'next/font/google';
 import './globals.css';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -9,16 +9,16 @@ import MainWrapper from '@/components/layout/MainWrapper';
 import FacebookPixel from '@/components/analytics/FacebookPixel';
 
 // Optimize fonts: preload and specify weights
-const editorial = Editorial({
+const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
-  weight: '400',
+  weight: ['300', '400', '500', '600', '700'],
   variable: '--font-editorial',
   preload: true,
   display: 'swap', // Use system font while loading
 });
 
 const roboto = Roboto({
-  weight: ['400', '500', '600', '700'],
+  weight: ['300', '400', '500', '600', '700'],
   subsets: ['latin'],
   variable: '--font-roboto',
   preload: true,
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${editorial.variable} ${roboto.variable}`}>
+    <html lang="fr" className={`${cormorant.variable} ${roboto.variable}`}>
       <head>
         {/* Preconnect to external origins */}
         <link rel="preconnect" href="https://vkrgfqjsixjsieqzykcx.supabase.co" />
