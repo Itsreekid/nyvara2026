@@ -213,6 +213,28 @@
   width: 100%;
 }
 
+@media (max-width: 768px) {
+  .tableScrollWrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+    display: block;
+    position: relative;
+  }
+  
+  .tableScrollWrapper::after {
+    content: '← Swipe to scroll →';
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #999;
+    white-space: nowrap;
+    font-style: italic;
+  }
+}
+
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -268,6 +290,28 @@
   
   .table th {
     font-size: 10px;
+    white-space: normal;
+  }
+}
+
+@media (max-width: 480px) {
+  .tableContainer {
+    border-radius: 8px;
+    margin-bottom: 30px;
+  }
+  
+  .table {
+    min-width: 720px;
+  }
+  
+  .table th,
+  .table td {
+    padding: 10px 12px;
+    font-size: 11px;
+  }
+  
+  .table th {
+    font-size: 9px;
     white-space: normal;
   }
 }

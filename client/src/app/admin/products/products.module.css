@@ -44,6 +44,13 @@
   flex-wrap: wrap;
 }
 
+@media (max-width: 1024px) {
+  .actionBtn {
+    padding: 5px 12px;
+    font-size: 11px;
+  }
+}
+
 @media (max-width: 768px) {
   .actionBtn {
     padding: 5px 10px;
@@ -58,8 +65,14 @@
 
 @media (max-width: 480px) {
   .actionBtn {
-    padding: 4px 8px;
-    font-size: 10px;
+    padding: 6px 12px;
+    font-size: 12px;
+    flex: 1;
+  }
+  
+  .actionBtns {
+    flex-direction: row;
+    gap: 6px;
   }
 }
 
@@ -88,12 +101,29 @@
 .marginNeg  { color: #ff5050; font-weight: 600; font-size: 13px; }
 
 /* Form */
-.form { display: flex; flex-direction: column; gap: 16px; }
+.form { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 16px; 
+}
+
+@media (max-width: 480px) {
+  .form {
+    gap: 14px;
+  }
+}
 
 .priceRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+@media (max-width: 1024px) {
+  .priceRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 11px;
+  }
 }
 
 @media (max-width: 768px) {
@@ -105,12 +135,28 @@
 
 @media (max-width: 480px) {
   .priceRow {
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 }
 
-.inputGroup { display: flex; flex-direction: column; gap: 6px; }
-.inputGroup label { font-size: 13px; font-weight: 600; color: var(--color-grey); }
+.inputGroup { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 6px; 
+}
+
+.inputGroup label { 
+  font-size: 13px; 
+  font-weight: 600; 
+  color: var(--color-grey); 
+}
+
+@media (max-width: 480px) {
+  .inputGroup label {
+    font-size: 12px;
+  }
+}
 
 .input {
   padding: 10px 14px;
@@ -123,6 +169,13 @@
   box-sizing: border-box;
 }
 .input:focus { border-color: var(--color-gold); }
+
+@media (max-width: 480px) {
+  .input {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
 
 /* ── Product gallery (admin) ────────────────── */
 .galleryGrid {
