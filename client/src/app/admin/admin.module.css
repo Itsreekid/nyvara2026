@@ -213,8 +213,6 @@
   width: 100%;
 }
 
-
-
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -242,6 +240,36 @@
 
 .table tr:last-child td {
   border-bottom: none;
+}
+
+/* Responsive table adjustments */
+@media (max-width: 1024px) {
+  .table th,
+  .table td {
+    padding: 14px 18px;
+    font-size: 12px;
+  }
+  
+  .table th {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 768px) {
+  .table {
+    min-width: 100%;
+  }
+  
+  .table th,
+  .table td {
+    padding: 12px 14px;
+    font-size: 12px;
+  }
+  
+  .table th {
+    font-size: 10px;
+    white-space: normal;
+  }
 }
 
 /* Status Badges */

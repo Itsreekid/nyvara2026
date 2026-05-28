@@ -5,6 +5,28 @@
   border-radius: 8px;
 }
 
+/* ─── Responsive Table ───────────────────── */
+@media (max-width: 1200px) {
+  .productImage {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 768px) {
+  .productImage {
+    width: 35px;
+    height: 35px;
+  }
+}
+
+@media (max-width: 480px) {
+  .productImage {
+    width: 30px;
+    height: 30px;
+  }
+}
+
 .actionBtn {
   padding: 6px 14px;
   border-radius: 6px;
@@ -16,7 +38,30 @@
 }
 .actionBtn:hover { background: var(--color-cream); }
 
-.actionBtns { display: flex; gap: 6px; }
+.actionBtns { 
+  display: flex; 
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .actionBtn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+  
+  .actionBtns {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .actionBtn {
+    padding: 4px 8px;
+    font-size: 10px;
+  }
+}
 
 .deleteBtn {
   border-color: rgba(255,80,80,0.3) !important;
@@ -51,6 +96,19 @@
   gap: 12px;
 }
 
+@media (max-width: 768px) {
+  .priceRow {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .priceRow {
+    gap: 8px;
+  }
+}
+
 .inputGroup { display: flex; flex-direction: column; gap: 6px; }
 .inputGroup label { font-size: 13px; font-weight: 600; color: var(--color-grey); }
 
@@ -74,6 +132,18 @@
   margin-top: 8px;
 }
 
+@media (max-width: 768px) {
+  .galleryGrid {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .galleryGrid {
+    gap: 6px;
+  }
+}
+
 .galleryThumb {
   position: relative;
   width: 80px;
@@ -86,6 +156,20 @@
 .galleryThumb img {
   width: 100%; height: 100%;
   object-fit: cover;
+}
+
+@media (max-width: 768px) {
+  .galleryThumb {
+    width: 70px;
+    height: 70px;
+  }
+}
+
+@media (max-width: 480px) {
+  .galleryThumb {
+    width: 60px;
+    height: 60px;
+  }
 }
 
 .galleryDelBtn {
@@ -127,6 +211,22 @@
 }
 .galleryAddBtn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+@media (max-width: 768px) {
+  .galleryAddBtn {
+    width: 70px;
+    height: 70px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .galleryAddBtn {
+    width: 60px;
+    height: 60px;
+    font-size: 8px;
+  }
+}
+
 @keyframes spin { to { transform: rotate(360deg); } }
 .gallerySpinner { animation: spin 0.8s linear infinite; }
 
@@ -144,6 +244,24 @@
   grid-template-columns: 1fr 1fr auto;
   gap: 8px;
   align-items: center;
+}
+
+@media (max-width: 768px) {
+  .specEditorRow {
+    grid-template-columns: 1fr 1fr auto;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .specEditorRow {
+    grid-template-columns: 1fr auto;
+    gap: 4px;
+  }
+  
+  .specEditorRow input:last-of-type {
+    grid-column: 1;
+  }
 }
 
 .specDelBtn {
@@ -188,6 +306,21 @@
   border: 1px solid var(--color-cream-dark);
 }
 
+@media (max-width: 768px) {
+  .colorOptionCard {
+    flex-direction: column;
+    gap: 12px;
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .colorOptionCard {
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
 .colorOptionImage {
   width: 100px;
   flex-shrink: 0;
@@ -203,6 +336,20 @@
 .colorPickers {
   display: flex;
   gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .colorPickers {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .colorPickers {
+    gap: 8px;
+    width: 100%;
+  }
 }
 
 .pickerWrap {
