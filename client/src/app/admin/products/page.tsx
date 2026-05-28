@@ -127,12 +127,23 @@ export default function AdminProductsPage() {
       specRows.filter(r => r.key.trim()).map(r => [r.key.trim(), r.value.trim()])
     );
 
+    // Calculate discount percentage from original price and final price
+    const price = parseFloat(formData.price) || 0;
+    const finalPrice = formData.final_price ? parseFloat(formData.final_price) : 0;
+    let discountPercentage = null;
+    
+    if (price > 0 && finalPrice > 0 && finalPrice < price) {
+      // Calculate discount: ((original - final) / original) * 100
+      discountPercentage = Math.round(((price - finalPrice) / price) * 10000) / 100; // Keep 2 decimals
+    }
+
     const payload = {
       title:        formData.title,
-      price:        parseFloat(formData.price) || 0,
+      price:        price,
+      final_price:  finalPrice > 0 ? finalPrice : null,
       cost_price:   formData.cost_price   ? parseFloat(formData.cost_price)   : null,
       stock:        parseInt(formData.stock, 10) || 0,
-      discount:     formData.discount     ? parseFloat(formData.discount)     : null,
+      discount:     discountPercentage,
       description:  formData.description,
       image_url:    formData.image_url,
       gender:       formData.gender,
@@ -337,28 +348,33 @@ export default function AdminProductsPage() {
               <input required type="number" step="0.001" className={styles.input} value={formData.price} onChange={handlePriceChange} placeholder="Ex: 89.900" />
             </div>
             <div className={styles.inputGroup}>
-              <label>Remise (%)</label>
-              <input type="number" step="0.1" min="0" max="100" className={styles.input} placeholder="Ex: 20" value={formData.discount} onChange={handleDiscountChange} />
-            </div>
-            <div className={styles.inputGroup}>
-              <label>Prix après remise (TND) ↔ auto</label>
+              <label>Prix après remise (TND)</label>
               <input
                 type="number" step="0.001" className={styles.input}
-                placeholder="Calcul automatique"
+                placeholder="Prix réduit"
                 value={formData.final_price}
                 onChange={handleFinalPriceChange}
                 style={{ borderColor: formData.final_price ? 'var(--color-gold)' : undefined }}
               />
             </div>
+          </div>
+
+          <div className={styles.priceRow}>
             <div className={styles.inputGroup}>
-              <label>Prix d&apos;achat / coût (TND)</label>
+              <label>Remise calculée (%)</label>
+              <input type="number" step="0.01" className={styles.input} placeholder="Auto-calculée" value={formData.discount} disabled style={{ opacity: 0.7, cursor: 'not-allowed' }} />
+            </div>
+            <div className={styles.inputGroup}>
+              <label>Prix d&apos;achat / coût (TND) 🔒</label>
               <input type="number" step="0.001" className={styles.input} placeholder="0.000" value={formData.cost_price} onChange={set('cost_price')} />
             </div>
+          </div>
+
+          <div className={styles.priceRow}>
             <div className={styles.inputGroup}>
               <label>Stock</label>
               <input type="number" step="1" className={styles.input} value={formData.stock} onChange={set('stock')} />
             </div>
-          </div>
 
           <div className={styles.priceRow}>
             <div className={styles.inputGroup}>
