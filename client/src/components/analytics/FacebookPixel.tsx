@@ -32,8 +32,8 @@ export default function FacebookPixel() {
 
   return (
     <>
-      {/* Base Pixel Code */}
-      <Script id="fb-pixel" strategy="afterInteractive">
+      {/* Base Pixel Code - deferred to improve LCP */}
+      <Script id="fb-pixel" strategy="lazyOnload">
         {`
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -47,18 +47,6 @@ export default function FacebookPixel() {
           fbq('track', 'PageView');
         `}
       </Script>
-
-      {/* No-script fallback */}
-      <noscript>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          height="1"
-          width="1"
-          style={{ display: 'none' }}
-          src={`https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`}
-          alt=""
-        />
-      </noscript>
 
       {/* Route change tracker */}
       <Suspense fallback={null}>
