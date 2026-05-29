@@ -32,18 +32,7 @@ function mapGender(g: string | null): string {
   return 'unisex';
 }
 
-function productToItem(p: {
-  id: string;
-  title: string | null;
-  description: string | null;
-  price: number | null;
-  final_price: number | null;
-  stock: number | null;
-  image_url: string | null;
-  gender: string | null;
-  badge: string | null;
-  categories: { name: string | null } | null;
-}): string {
+function productToItem(p: any): string {
   const id          = p.id;
   const title       = esc(p.title ?? 'Nyvara Sunglasses');
   const description = esc(p.description ?? 'Lunettes de soleil de luxe — Nyvara Tunisia');
@@ -52,7 +41,16 @@ function productToItem(p: {
   const imageLink   = p.image_url ?? '';
   const availability = (p.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
   const gender      = mapGender(p.gender);
-  const productType = esc(p.categories?.name ?? 'sunglasses');
+  
+  let categoryName = 'sunglasses';
+  if (p.categories) {
+    if (Array.isArray(p.categories)) {
+      categoryName = p.categories[0]?.name ?? 'sunglasses';
+    } else {
+      categoryName = p.categories.name ?? 'sunglasses';
+    }
+  }
+  const productType = esc(categoryName);
   const brand       = 'Nyvara';
 
   return `    <item>

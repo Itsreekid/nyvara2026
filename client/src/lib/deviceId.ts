@@ -3,7 +3,15 @@
  * Uses combination of UUID and IP address (on server) for persistence
  */
 
-import { v4 as uuidv4 } from 'uuid';
+function generateRandomId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 const DEVICE_ID_KEY = 'nyvara_device_id';
 const DEVICE_ID_VERSION = 'v1';
@@ -15,7 +23,7 @@ const DEVICE_ID_VERSION = 'v1';
 export function getDeviceId(): string {
   if (typeof window === 'undefined') {
     // Server-side: generate temporary
-    return uuidv4();
+    return generateRandomId();
   }
 
   // Check if already stored
@@ -25,7 +33,7 @@ export function getDeviceId(): string {
   }
 
   // Generate new and store
-  const deviceId = uuidv4();
+  const deviceId = generateRandomId();
   localStorage.setItem(DEVICE_ID_KEY, DEVICE_ID_VERSION + deviceId);
   return deviceId;
 }
