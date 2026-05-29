@@ -72,13 +72,13 @@ function fire(event: string, params?: Record<string, unknown>, eventId?: string)
 /** Client-side event helpers — use these throughout the app */
 export const fbEvent = {
   /** Fire when user views a product */
-  viewContent: (params: { content_ids: string[]; content_name: string; value?: number }) => {
-    fire('ViewContent', params);
+  viewContent: (params: { content_ids: string[]; content_name: string; value?: number; content_type?: string; content_category?: string }) => {
+    fire('ViewContent', { content_type: 'product', ...params });
   },
 
   /** Fire when user adds to cart */
-  addToCart: (params: { content_ids: string[]; content_name: string; value: number }) => {
-    fire('AddToCart', params);
+  addToCart: (params: { content_ids: string[]; content_name: string; value: number; content_type?: string }) => {
+    fire('AddToCart', { content_type: 'product', ...params });
   },
 
   /** Fire when user opens checkout */

@@ -10,6 +10,7 @@ import { useWishlist } from '@/context/WishlistContext';
 import ProductCard from '@/components/shop/ProductCard';
 import type { Product, ColorOption } from '@/types';
 import styles from './product.module.css';
+import { fbEvent } from '@/components/analytics/FacebookPixel';
 
 const formatTND = (price: number | null) => {
   if (price === null) return '—';
@@ -55,6 +56,18 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
   const inCart     = isInCart(product.id);
   const wishlisted = isWishlisted(product.id);
+
+  // ── Meta Pixel: ViewContent ──────────────────────────────────────────
+  useEffect(() => {
+    fbEvent.viewContent({
+      content_ids:  [product.id],
+      content_name: product.title ?? '',
+      value:        product.final_price ?? product.price ?? undefined,
+      content_type: 'product',
+      content_category: product.categories?.name ?? undefined,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   const hasDiscount     = product.discount != null && product.discount > 0;
   const discountedPrice = hasDiscount && product.price != null
@@ -147,6 +160,12 @@ export default function ProductDetail({ product, gallery, related }: Props) {
     selectedColors.forEach(color => {
       addItem(product, color ?? undefined);
     });
+    fbEvent.addToCart({
+      content_ids:  [product.id],
+      content_name: product.title ?? '',
+      value:        (product.final_price ?? product.price ?? 0) * qty,
+      content_type: 'product',
+    });
     setQty(1);
   };
 
@@ -154,6 +173,12 @@ export default function ProductDetail({ product, gallery, related }: Props) {
   const handleBuyNow = () => {
     selectedColors.forEach(color => {
       addItem(product, color ?? undefined);
+    });
+    fbEvent.addToCart({
+      content_ids:  [product.id],
+      content_name: product.title ?? '',
+      value:        (product.final_price ?? product.price ?? 0) * qty,
+      content_type: 'product',
     });
     router.push('/cart?checkout=true');
   };

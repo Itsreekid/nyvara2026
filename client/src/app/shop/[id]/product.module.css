@@ -540,7 +540,7 @@
   .detailsSection { grid-template-columns: 1fr; gap: 16px; margin-bottom: 32px; }
 
   /* Related 2 cols */
-  .relatedGrid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .relatedGrid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
 
   /* Hide desktop actions — replaced by sticky bottom bar */
   .actions { display: none; }
@@ -602,7 +602,13 @@
   .sectionTitle { font-size: 1.05rem; }
 
   /* Related 2 cols tight */
-  .relatedGrid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .relatedGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    /* compensate for container padding so cards touch the edge cleanly */
+    margin-left: 0;
+    margin-right: 0;
+  }
 
   /* Sticky bar: stack price above button */
   .mobileCta { flex-direction: row; gap: 10px; padding: 10px 12px; }
