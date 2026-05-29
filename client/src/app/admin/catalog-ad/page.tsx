@@ -160,31 +160,6 @@ export default function CatalogAdPage() {
         </div>
       </div>
 
-      {/* Live Feed URL Banner */}
-      <div className={styles.feedUrlBanner}>
-        <Link2 size={16} className={styles.feedUrlIcon} />
-        <div className={styles.feedUrlContent}>
-          <div className={styles.feedUrlLabel}>🔗 URL du flux automatique (recommandé)</div>
-          <div className={styles.feedUrlRow}>
-            <code className={styles.feedUrlCode}>{FEED_URL}</code>
-            <button className={`${styles.copyBtn} ${copied ? styles.copyBtnDone : ''}`} onClick={copyFeedUrl}>
-              {copied ? <><CheckCheck size={14} /> Copié !</> : <><Copy size={14} /> Copier</>}
-            </button>
-          </div>
-          <div className={styles.feedUrlHint}>
-            Utilisez cette URL dans Meta → <strong>Catalog Manager → Flux de données</strong>. Meta rafraîchit automatiquement le catalogue toutes les heures.
-          </div>
-        </div>
-      </div>
-
-      {/* Info Banner */}
-      <div className={styles.infoBanner}>
-        <Info size={16} />
-        <span>
-          Sélectionnez les produits à inclure dans votre campagne Meta Dynamic Ads, puis exportez le catalogue en XML ou CSV pour l&apos;importer dans <strong>Meta Business Manager → Catalog Manager</strong>.
-        </span>
-      </div>
-
       <div className={styles.workspace}>
         {/* ── Left: Product Picker ── */}
         <div className={styles.pickerPanel}>
@@ -330,6 +305,20 @@ export default function CatalogAdPage() {
 
         {/* Product Sets Guide */}
         <div className={styles.productSetsPanel}>
+          {/* Live Feed URL Card (Compact) */}
+          <div className={styles.feedUrlCard}>
+            <div className={styles.feedUrlLabel}>🔗 Flux automatique Meta</div>
+            <div className={styles.feedUrlRow}>
+              <code className={styles.feedUrlCode}>{FEED_URL}</code>
+              <button className={`${styles.copyBtn} ${copied ? styles.copyBtnDone : ''}`} onClick={copyFeedUrl} aria-label="Copier le lien du flux">
+                {copied ? <CheckCheck size={13} /> : <Copy size={13} />}
+              </button>
+            </div>
+            <div className={styles.feedUrlHint}>
+              Meta rafraîchit automatiquement votre catalogue toutes les heures.
+            </div>
+          </div>
+
           <div className={styles.exportTitle}>📂 Structure Catalog Meta</div>
 
           <div className={styles.setsTree}>

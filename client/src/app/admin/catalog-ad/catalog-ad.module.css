@@ -58,6 +58,9 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  position: sticky;
+  top: 90px;
+  max-height: calc(100vh - 120px);
 }
 
 .pickerHeader {
@@ -126,7 +129,7 @@
 /* ─── Product List ───────────────────────────────────────────────────── */
 .productList {
   overflow-y: auto;
-  max-height: 600px;
+  flex: 1;
 }
 
 .productRow {
@@ -251,100 +254,106 @@
   padding: 24px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  position: sticky;
-  top: 24px;
+  gap: 20px;
 }
 
 .exportTitle {
-  font-family: var(--font-editorial);
-  font-size: 1.3rem;
+  font-size: 16px;
+  font-weight: 700;
   color: var(--color-black);
-  border-bottom: 1px solid #f0ede8;
-  padding-bottom: 14px;
+  border-bottom: 1.5px solid var(--color-gold);
+  padding-bottom: 8px;
 }
 
 /* ─── Format Selector ────────────────────────────────────────────────── */
+.formatGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .formatLabel {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #999;
-  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+  color: var(--color-grey);
 }
 
 .formatOptions {
-  display: flex;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .formatBtn {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 14px 10px;
-  border: 2px solid #e8e8e8;
+  justify-content: center;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--color-cream-dark);
   border-radius: 10px;
   background: white;
   cursor: pointer;
-  font-family: var(--font-body);
-  font-size: 14px;
-  font-weight: 600;
-  color: #888;
   transition: all 0.2s;
 }
 
 .formatBtn:hover {
   border-color: var(--color-gold);
-  color: var(--color-gold);
+  background: #fafaf8;
 }
 
 .formatBtnActive {
   border-color: var(--color-gold);
-  background: #fffbf0;
+  background: #fffbf2;
+  box-shadow: 0 0 0 1px var(--color-gold);
+}
+
+.formatBtn span {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--color-black);
 }
 
 .formatHint {
-  font-size: 10px;
-  font-weight: 500;
-  color: var(--color-gold);
-  background: #fff3cd;
-  padding: 2px 6px;
-  border-radius: 6px;
+  font-size: 9px !important;
+  color: var(--color-gold) !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 /* ─── Summary Box ────────────────────────────────────────────────────── */
 .summaryBox {
-  background: #fafaf8;
-  border: 1px solid #f0ede8;
+  border: 1px solid var(--color-cream-dark);
   border-radius: 10px;
-  padding: 16px;
+  padding: 14px;
+  background: #fafaf8;
 }
 
 .summaryTitle {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #999;
-  margin-bottom: 12px;
+  letter-spacing: 0.05em;
+  color: var(--color-grey);
+  margin-bottom: 10px;
 }
 
 .summaryEmpty {
-  font-size: 13px;
-  color: #bbb;
+  font-size: 12.5px;
+  color: #999;
   text-align: center;
   padding: 10px 0;
+  font-style: italic;
 }
 
 .summaryList {
   list-style: none;
-  margin: 0;
   padding: 0;
+  margin: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -353,24 +362,24 @@
 .summaryItem {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 13px;
+  gap: 8px;
+  font-size: 12.5px;
   color: var(--color-black);
 }
 
 .summaryThumb {
-  width: 32px;
-  height: 32px;
-  border-radius: 6px;
-  background: #e8e8e8 center/cover no-repeat;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: #eee center/cover no-repeat;
   flex-shrink: 0;
 }
 
 .summaryMore {
-  font-size: 12px;
-  color: var(--color-gold);
+  font-size: 11px;
   font-weight: 600;
-  padding-top: 4px;
+  color: var(--color-gold);
+  padding-left: 32px;
 }
 
 /* ─── Export Button ──────────────────────────────────────────────────── */
@@ -378,7 +387,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   padding: 14px;
   background: var(--color-black);
@@ -419,7 +428,7 @@
 }
 
 .stepsTitle {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -454,53 +463,38 @@
   color: #3355aa;
 }
 
-/* ─── Feed URL Banner ────────────────────────────────────────────────── */
-.feedUrlBanner {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
+/* ─── Feed URL Card ──────────────────────────────────────────────────── */
+.feedUrlCard {
   background: #0a0a0a;
   color: white;
-  border-radius: 12px;
-  padding: 18px 22px;
-  margin-bottom: 20px;
-}
-
-.feedUrlIcon {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--color-gold);
-}
-
-.feedUrlContent {
-  flex: 1;
-  min-width: 0;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .feedUrlLabel {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--color-gold);
-  margin-bottom: 8px;
 }
 
 .feedUrlRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .feedUrlCode {
   font-family: monospace;
-  font-size: 13px;
+  font-size: 11px;
   color: #90ee90;
   background: rgba(255,255,255,0.08);
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 5px 8px;
+  border-radius: 4px;
   flex: 1;
   min-width: 0;
   white-space: nowrap;
@@ -512,18 +506,14 @@
 .copyBtn {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
+  justify-content: center;
+  padding: 6px;
   background: var(--color-gold);
   color: white;
   border: none;
-  border-radius: 7px;
-  font-size: 12px;
-  font-weight: 600;
-  font-family: var(--font-body);
+  border-radius: 5px;
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap;
   flex-shrink: 0;
 }
 
@@ -536,13 +526,9 @@
 }
 
 .feedUrlHint {
-  font-size: 12px;
-  color: rgba(255,255,255,0.6);
-  line-height: 1.5;
-}
-
-.feedUrlHint strong {
-  color: rgba(255,255,255,0.9);
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.4;
 }
 
 /* ─── Product Sets Panel ─────────────────────────────────────────────── */
@@ -565,7 +551,7 @@
 
 .setsRoot {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--color-black);
   margin-bottom: 10px;
 }
