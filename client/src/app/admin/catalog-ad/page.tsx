@@ -160,6 +160,20 @@ export default function CatalogAdPage() {
         </div>
       </div>
 
+      {/* Live Feed URL Card (Horizontal on desktop, stacked on mobile) */}
+      <div className={styles.feedUrlCard}>
+        <div className={styles.feedUrlLabel}>🔗 Flux automatique Meta</div>
+        <div className={styles.feedUrlRow}>
+          <code className={styles.feedUrlCode}>{FEED_URL}</code>
+          <button className={`${styles.copyBtn} ${copied ? styles.copyBtnDone : ''}`} onClick={copyFeedUrl} aria-label="Copier le lien du flux">
+            {copied ? <CheckCheck size={13} /> : <Copy size={13} />}
+          </button>
+        </div>
+        <div className={styles.feedUrlHint}>
+          Meta rafraîchit automatiquement votre catalogue toutes les heures.
+        </div>
+      </div>
+
       <div className={styles.workspace}>
         {/* ── Left: Product Picker ── */}
         <div className={styles.pickerPanel}>
@@ -305,20 +319,6 @@ export default function CatalogAdPage() {
 
         {/* Product Sets Guide */}
         <div className={styles.productSetsPanel}>
-          {/* Live Feed URL Card (Compact) */}
-          <div className={styles.feedUrlCard}>
-            <div className={styles.feedUrlLabel}>🔗 Flux automatique Meta</div>
-            <div className={styles.feedUrlRow}>
-              <code className={styles.feedUrlCode}>{FEED_URL}</code>
-              <button className={`${styles.copyBtn} ${copied ? styles.copyBtnDone : ''}`} onClick={copyFeedUrl} aria-label="Copier le lien du flux">
-                {copied ? <CheckCheck size={13} /> : <Copy size={13} />}
-              </button>
-            </div>
-            <div className={styles.feedUrlHint}>
-              Meta rafraîchit automatiquement votre catalogue toutes les heures.
-            </div>
-          </div>
-
           <div className={styles.exportTitle}>📂 Structure Catalog Meta</div>
 
           <div className={styles.setsTree}>
