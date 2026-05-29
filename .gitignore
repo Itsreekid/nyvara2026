@@ -17,3 +17,6 @@ next-env.d.ts
 
 # Local Netlify folder
 .netlify
+
+# Embedded duplicate repo (not a submodule)
+nyvara/
