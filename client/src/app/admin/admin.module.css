@@ -12,7 +12,8 @@
   color: white;
   display: flex;
   flex-direction: column;
-  position: sticky;
+  position: fixed;
+  left: 0;
   top: 0;
   height: 100vh;
   flex-shrink: 0;
@@ -112,6 +113,7 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  margin-left: 260px;
 }
 
 .topHeader {
@@ -122,9 +124,11 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 32px;
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 10;
+  left: 260px;
+  right: 0;
+  z-index: 100;
 }
 
 .headerLeft {
@@ -181,6 +185,7 @@
 .contentArea {
   padding: 32px;
   flex: 1;
+  margin-top: 70px;
 }
 
 /* ─── Common Page Elements ────────────────── */
@@ -362,6 +367,10 @@
     display: block;
   }
 
+  .main {
+    margin-left: 0;
+  }
+
   /* Show hamburger */
   .menuBtn {
     display: flex;
@@ -371,6 +380,7 @@
   .topHeader {
     padding: 0 16px;
     height: 60px;
+    left: 0;
   }
 
   .headerTitle {
@@ -388,6 +398,7 @@
   /* Content area padding */
   .contentArea {
     padding: 16px;
+    margin-top: 60px;
   }
 
   /* Page title smaller */
