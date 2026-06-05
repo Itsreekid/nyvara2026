@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import { ShoppingBag, Archive, ArchiveRestore, CheckSquare } from 'lucide-react';
+import { ShoppingBag, Archive, ArchiveRestore, CheckSquare, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import Modal from '@/components/ui/Modal';
+import OrderDetailsDrawer from '@/components/admin/OrderDetailsDrawer';
 import StatusDropdown from '@/components/admin/StatusDropdown';
 import type { Order, ColorOption } from '@/types';
 import adminStyles from '../admin.module.css';
@@ -265,13 +265,12 @@ export default function AdminOrdersPage() {
                 <th>ID</th>
                 <th>Client</th>
                 <th>Téléphone</th>
-                <th>Ville</th>
                 <th>Statut</th>
                 <th>Produits</th>
-                <th>Date</th>
                 <th>Total</th>
                 <th>Livraison</th>
                 {!viewArchived && <th>Étiquette</th>}
+                <th style={{ width: '50px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -296,7 +295,6 @@ export default function AdminOrdersPage() {
                     <td>#{order.id.slice(0, 8)}</td>
                     <td>{order.customer_name}</td>
                     <td>{order.phone}</td>
-                    <td>{order.city}</td>
                     <td>
                       <StatusDropdown
                         value={order.call_status ?? 'pending'}
@@ -309,7 +307,6 @@ export default function AdminOrdersPage() {
                         <span>{itemCount} article{itemCount !== 1 ? 's' : ''}</span>
                       </button>
                     </td>
-                    <td>{new Date(order.created_at || '').toLocaleDateString('fr-FR')}</td>
                     <td>{order.total_price?.toFixed(3)} TND</td>
                     <td>
                       {order.cosmos_barcode ? (
@@ -343,6 +340,15 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
                     )}
+                    <td>
+                      <button 
+                        className={styles.eyeBtn} 
+                        onClick={() => setSelectedOrder(order)}
+                        title="Voir les détails"
+                      >
+                        <Eye size={18} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
@@ -390,64 +396,12 @@ export default function AdminOrdersPage() {
 
       </div>
 
-      {/* ── Order Items Modal ── */}
-      <Modal
+      {/* ── Order Details Drawer ── */}
+      <OrderDetailsDrawer
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        title={`Commande #${selectedOrder?.id.slice(0, 8)} — ${selectedOrder?.customer_name}`}
-        size="md"
-      >
-        {items.length === 0 ? (
-          <p style={{ color: '#888', textAlign: 'center', padding: '20px 0' }}>
-            Aucun article enregistré pour cette commande.
-          </p>
-        ) : (
-          <div className={styles.itemsList}>
-            {items.map(item => {
-              const matchingColor = item.products?.color_options?.find(
-                (co: ColorOption) => co.name === item.selected_color_name
-              );
-              const imageUrl = matchingColor?.image_url || item.products?.image_url;
-
-              return (
-                <div key={item.id} className={styles.itemRow}>
-                  {imageUrl && (
-                    <Image
-                      src={imageUrl}
-                      alt={item.products?.title ?? 'Produit'}
-                      width={48}
-                      height={48}
-                      className={styles.itemImg}
-                      unoptimized
-                    />
-                  )}
-                  <div className={styles.itemInfo}>
-                    <span className={styles.itemName}>
-                      {item.products?.title ?? 'Produit inconnu'} {item.selected_color_name ? `(${item.selected_color_name})` : ''}
-                    </span>
-                    <span className={styles.itemQty}>Qté : {item.quantity}</span>
-                  </div>
-                  <div className={styles.itemPrice}>
-                    {item.quantity_break_price != null 
-                      ? `${(item.quantity_break_price * item.quantity).toFixed(3)} TND`
-                      : item.products?.price != null ? (() => {
-                          const disc = item.products.discount;
-                          const unit = disc != null && disc > 0
-                            ? item.products.price * (1 - disc / 100)
-                            : item.products.price;
-                          return `${(unit * item.quantity).toFixed(3)} TND`;
-                        })() : '—'}
-                  </div>
-                </div>
-              );
-            })}
-            <div className={styles.itemsTotal}>
-              <span>Total articles</span>
-              <span>{itemsTotal.toFixed(3)} TND</span>
-            </div>
-          </div>
-        )}
-      </Modal>
+        order={selectedOrder}
+      />
     </div>
   );
 }
