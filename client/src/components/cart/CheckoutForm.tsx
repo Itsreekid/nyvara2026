@@ -60,6 +60,7 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
       city: formData.ville,
       postal_code: formData.code_postal,
       country: formData.pays,
+      address: formData.adresse,
       items: items.map(item => ({
         product_id: item.product.id,
         quantity: item.quantity,

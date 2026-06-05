@@ -51,6 +51,13 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://vkrgfqjsixjsieqzykcx.supabase.co https://*.facebook.com https://*.facebook.net; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://vkrgfqjsixjsieqzykcx.supabase.co https://*.facebook.com https://*.facebook.net; frame-src 'self' https://*.facebook.com;"
+          }
         ],
       },
     ];

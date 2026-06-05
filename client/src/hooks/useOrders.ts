@@ -87,6 +87,7 @@ export function useCreateOrder() {
           city:           payload.city,
           postal_code:    payload.postal_code,
           country:        payload.country,
+          address:        payload.address,
           total_price,
         })
         .select()
