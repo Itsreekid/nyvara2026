@@ -4,7 +4,8 @@ import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { X, Edit } from 'lucide-react';
 import styles from './OrderDetailsDrawer.module.css';
-import type { OrderWithItems, ColorOption } from '@/app/admin/orders/page'; // Need to export this type or redefine it
+import type { ColorOption } from '@/types';
+import type { OrderWithItems } from '@/app/admin/orders/page';
 
 interface DrawerProps {
   isOpen: boolean;

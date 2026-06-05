@@ -26,7 +26,7 @@ const DELIVERY_STATUS: Record<string, { label: string; cls: string }> = {
   'return-in-transfer': { label: 'Inter-retour',  cls: 'returned'   },
 };
 
-interface OrderItem {
+export interface OrderItem {
   id: string;
   quantity: number;
   quantity_break_price: number | null;
@@ -34,7 +34,7 @@ interface OrderItem {
   products: { title: string; price: number | null; discount: number | null; image_url: string | null; color_options: ColorOption[] | null } | null;
 }
 
-interface OrderWithItems extends Order {
+export interface OrderWithItems extends Order {
   order_items: OrderItem[];
   archived: boolean;
   call_status: string;
