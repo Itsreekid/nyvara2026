@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { normalizeProductImageUrl } from '@/lib/r2';
 
 // ─── Supabase server-side client ──────────────────────────────────────────────
 const supabase = createClient(
@@ -11,6 +12,21 @@ const SITE_URL = 'https://nyvara.net';
 
 // Meta-required Google Product Category for sunglasses
 const GOOGLE_CATEGORY = 'Apparel &amp; Accessories &gt; Clothing Accessories &gt; Sunglasses';
+
+type MetaCategory = { name: string | null } | { name: string | null }[] | null;
+
+type MetaProductRow = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  price: number | null;
+  final_price: number | null;
+  stock: number | null;
+  image_url: string | null;
+  gender: string | null;
+  badge: string | null;
+  categories: MetaCategory;
+};
 
 function esc(s: string): string {
   return s
@@ -32,13 +48,13 @@ function mapGender(g: string | null): string {
   return 'unisex';
 }
 
-function productToItem(p: any): string {
+function productToItem(p: MetaProductRow): string {
   const id          = p.id;
   const title       = esc(p.title ?? 'Nyvara Sunglasses');
   const description = esc(p.description ?? 'Lunettes de soleil de luxe — Nyvara Tunisia');
   const price       = formatPrice(p.final_price ?? p.price ?? 0);
   const link        = `${SITE_URL}/shop/${p.id}`;
-  const imageLink   = p.image_url ?? '';
+  const imageLink   = normalizeProductImageUrl(p.image_url);
   const availability = (p.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
   const gender      = mapGender(p.gender);
   

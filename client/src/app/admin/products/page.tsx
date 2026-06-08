@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
+import { uploadImageToR2 } from '@/lib/r2-upload';
 import type { Product, Category, ColorOption, QuantityBreak } from '@/types';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
@@ -186,14 +187,7 @@ export default function AdminProductsPage() {
 
     setUploadingGallery(true);
     try {
-      const ext  = file.name.split('.').pop();
-      const path = `images/${Date.now()}_${Math.random().toString(36).slice(7)}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('Product')
-        .upload(path, file, { cacheControl: '3600', upsert: false });
-      if (upErr) throw upErr;
-
-      const { data: { publicUrl } } = supabase.storage.from('Product').getPublicUrl(path);
+      const publicUrl = await uploadImageToR2(file);
 
       const nextOrder = galleryImages.length;
       const { data: img, error: dbErr } = await supabase
@@ -203,8 +197,9 @@ export default function AdminProductsPage() {
         .single();
       if (dbErr) throw dbErr;
       setGalleryImages(prev => [...prev, img as GalleryImage]);
-    } catch (err: any) {
-      alert('Erreur upload : ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erreur inconnue';
+      alert('Erreur upload : ' + message);
     } finally {
       setUploadingGallery(false);
       if (galleryInputRef.current) galleryInputRef.current.value = '';
@@ -222,37 +217,6 @@ export default function AdminProductsPage() {
     const sellingPrice = p.final_price ?? p.price;
     if (sellingPrice == null) return null;
     return sellingPrice - p.cost_price;
-  };
-
-  // When discount % changes → recompute final_price
-  const handleDiscountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const disc = e.target.value;
-    const price = parseFloat(formData.price);
-    const fp = disc !== '' && !isNaN(price) && price > 0
-      ? String(Math.round(price * (1 - parseFloat(disc) / 100)))
-      : '';
-    setFormData(prev => ({ ...prev, discount: disc, final_price: fp }));
-  };
-
-  // When final_price changes → recompute discount %
-  const handleFinalPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const fp = e.target.value;
-    const price = parseFloat(formData.price);
-    // Use 4 decimal places for precision so the round-trip calculation stays accurate
-    const disc = fp !== '' && !isNaN(price) && price > 0
-      ? String(+(100 - (parseFloat(fp) / price) * 100).toFixed(4))
-      : '';
-    setFormData(prev => ({ ...prev, final_price: fp, discount: disc }));
-  };
-
-  // When base price changes → keep final_price consistent if discount is set
-  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const price = e.target.value;
-    const disc = parseFloat(formData.discount);
-    const fp = !isNaN(disc) && disc > 0 && parseFloat(price) > 0
-      ? String(Math.round(parseFloat(price) * (1 - disc / 100)))
-      : '';
-    setFormData(prev => ({ ...prev, price, final_price: fp }));
   };
 
   const set = (field: keyof FormState) =>
@@ -637,7 +601,7 @@ export default function AdminProductsPage() {
                 />
               </div>
               <p className={styles.galleryHint}>
-                Ces photos s'affichent dans la galerie de la page produit.
+                Ces photos s&apos;affichent dans la galerie de la page produit.
               </p>
             </div>
           )}

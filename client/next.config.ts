@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
         hostname: 'vkrgfqjsixjsieqzykcx.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'assets.nyvara.com',
+        pathname: '/products/**',
+      },
     ],
     // Image optimization settings
     formats: ['image/avif', 'image/webp'], // Modern formats

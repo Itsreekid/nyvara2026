@@ -3,11 +3,12 @@
 import { useState, useMemo } from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import type { Product } from '@/types';
+import { normalizeProductImageUrl } from '@/lib/r2';
 import adminStyles from '@/app/admin/admin.module.css';
 import styles from './catalog-ad.module.css';
 import {
   Search, CheckSquare, Square, Download,
-  FileText, FileCode, Package, Info, Link2, Copy, CheckCheck,
+  FileText, FileCode, Package, Copy, CheckCheck,
 } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -24,7 +25,7 @@ function productToXmlItem(p: Product): string {
   const description = (p.description ?? 'Lunettes de soleil Nyvara').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const price       = formatPrice(p.final_price ?? p.price ?? 0);
   const link        = `${SITE_URL}/shop/${p.id}`;
-  const imageLink   = p.image_url ?? '';
+  const imageLink   = normalizeProductImageUrl(p.image_url);
   const availability = (p.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
   const brand       = 'Nyvara';
   const condition   = 'new';
@@ -69,7 +70,7 @@ function buildCsv(products: Product[]): string {
       esc('new'),
       esc(formatPrice(p.final_price ?? p.price ?? 0)),
       esc(`${SITE_URL}/shop/${p.id}`),
-      esc(p.image_url ?? ''),
+      esc(normalizeProductImageUrl(p.image_url)),
       esc('Nyvara'),
       esc(p.gender === 'homme' ? 'male' : p.gender === 'femme' ? 'female' : 'unisex'),
     ].join(',');
@@ -122,7 +123,11 @@ export default function CatalogAdPage() {
   const toggleOne = (id: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
     setExported(false);

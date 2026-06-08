@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { uploadImageToR2 } from '@/lib/r2-upload';
 import styles from './ImageUpload.module.css';
 
 interface ImageUploadProps {
@@ -54,31 +54,13 @@ export default function ImageUpload({ value, onChange, onUploading }: ImageUploa
     onUploading(true);
 
     try {
-      // 1. Create a unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = `images/${fileName}`;
+      const publicUrl = await uploadImageToR2(file);
+      onChange(publicUrl);
 
-      // 2. Upload to Supabase 'Product' bucket
-      const { error: uploadError } = await supabase.storage
-        .from('Product')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // 3. Get Public URL
-      const { data } = supabase.storage.from('Product').getPublicUrl(filePath);
-      
-      onChange(data.publicUrl);
-
-    } catch (error: any) {
-      console.error("Upload error:", error);
-      alert("Erreur lors du téléchargement de l'image : " + error.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      console.error('Upload error:', error);
+      alert("Erreur lors du téléchargement de l'image : " + message);
     } finally {
       setIsUploading(false);
       onUploading(false);
