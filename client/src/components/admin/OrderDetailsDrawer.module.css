@@ -71,6 +71,27 @@
 .editBtn:hover {
   background: #5a3c99;
 }
+.saveBtn {
+  background: #2a1b4d; /* Darker purple */
+  border: 1px solid #6c4eab;
+  border-radius: 6px;
+  color: white;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+.saveBtn:hover {
+  background: #6c4eab;
+}
+.saveBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
 .closeBtn {
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -158,6 +179,47 @@
   text-align: right;
   font-weight: 500;
   word-break: break-word;
+}
+.detailRowCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14px;
+}
+.textInput, .selectInput {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+  max-width: 250px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.textInput:focus, .selectInput:focus {
+  border-color: #6c4eab;
+}
+.selectInput option {
+  background: #140f1d;
+  color: white;
+}
+.textareaInput {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  width: 100%;
+  min-height: 80px;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+.textareaInput:focus {
+  border-color: #6c4eab;
 }
 .statusBadge {
   background: rgba(255, 200, 80, 0.15);

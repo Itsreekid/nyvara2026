@@ -13,6 +13,7 @@ import { fbEvent } from '@/components/analytics/FacebookPixel';
 
 interface ProductCardProps {
   product: Product;
+  priority?: boolean;
 }
 
 const formatTND = (price: number | null) => {
@@ -20,7 +21,7 @@ const formatTND = (price: number | null) => {
   return `${price.toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND`;
 };
 
-export default function ProductCard({ product }: ProductCardProps) {
+export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const { addItem, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isWishlisted } = useWishlist();
   const viewFired = useRef(false);
@@ -96,7 +97,8 @@ export default function ProductCard({ product }: ProductCardProps) {
               alt={product.title ?? 'Sunglasses'}
               fill
               className={styles.image}
-              sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              priority={priority}
             />
           ) : (
             <div className={styles.imagePlaceholder} aria-hidden="true">
@@ -116,7 +118,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           {/* Discount badge */}
           {hasDiscount && (
             <div className={styles.discountBadge}>
-              -{product.discount}%
+              -{Math.round(product.discount!)}%
             </div>
           )}
 

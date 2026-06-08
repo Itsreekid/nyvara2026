@@ -45,7 +45,9 @@ function cartReducer(state: CartState, action: CartAction): CartState {
     case 'CLEAR_CART':
       return buildState([]);
     case 'SET_CART':
-      return action.state;
+      // Always recalculate totals when loading from localStorage
+      // to ensure any updated pricing logic applies to old carts.
+      return buildState(action.state.items);
     default:
       return state;
   }
@@ -74,7 +76,7 @@ function buildState(items: CartItem[]): CartState {
         unitPrice = applicableBreak.total_price / totalQty;
       } else {
         const hasDiscount = i.product.discount != null && i.product.discount > 0;
-        unitPrice = hasDiscount ? (i.product.price ?? 0) * (1 - i.product.discount! / 100) : (i.product.price ?? 0);
+        unitPrice = hasDiscount ? Math.round((i.product.price ?? 0) * (1 - i.product.discount! / 100)) : (i.product.price ?? 0);
       }
 
       return sum + unitPrice * i.quantity;

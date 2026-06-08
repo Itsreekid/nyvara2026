@@ -94,7 +94,7 @@ export default function StatusDropdown({ value, onChange, disabled }: Props) {
     <>
       {/* invisible backdrop — catches outside clicks */}
       <div
-        style={{ position: 'fixed', inset: 0, zIndex: 999 }}
+        style={{ position: 'fixed', inset: 0, zIndex: 10000 }}
         onClick={() => setOpen(false)}
       />
       {/* panel */}
@@ -105,7 +105,7 @@ export default function StatusDropdown({ value, onChange, disabled }: Props) {
           top:    pos.top    !== undefined ? pos.top    : 'auto',
           bottom: pos.bottom !== undefined ? pos.bottom : 'auto',
           left:   pos.left,
-          zIndex: 1000,
+          zIndex: 10001,
         }}
       >
         {CALL_STATUSES.map(opt => (

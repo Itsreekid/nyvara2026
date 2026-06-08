@@ -57,10 +57,46 @@ export default function AdminOrdersPage() {
   // Items modal
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
 
+  // Sync selected order with latest data from table
+  useEffect(() => {
+    if (selectedOrder) {
+      const updated = orders.find(o => o.id === selectedOrder.id);
+      if (updated && updated !== selectedOrder) {
+        setSelectedOrder(updated);
+      }
+    }
+  }, [orders, selectedOrder]);
+
   // Pagination
   const [page, setPage]             = useState(0);
   const [pageSize, setPageSize]     = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+
+  // ── Confirm & dispatch ─────────────────────────────────────────────────────
+  const confirmOrderAndDispatch = async (order: OrderWithItems) => {
+    if (!confirm("Confirmer cette commande et l'envoyer à Cosmos ?")) return;
+    setSyncing(true);
+    try {
+      const quantity = (order.order_items ?? []).reduce((s, i) => s + (i.quantity || 1), 0);
+      const cosmosRes = await fetch('/api/cosmos/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: order.customer_name, phone: order.phone,
+          city: order.city, total_price: order.total_price, quantity, order_id: order.id,
+        }),
+      });
+      if (cosmosRes.ok) {
+        const { data: delivery } = await cosmosRes.json();
+        await supabase.from('orders').update({
+          cosmos_barcode: delivery.barcode, cosmos_label_url: delivery.labelUrl,
+          cosmos_label_pdf_url: delivery.labelPdfUrl, cosmos_status: delivery.status || 'to-be-picked',
+        }).eq('id', order.id);
+        await fetchOrders();
+      } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
+    } catch (err: any) { alert('Erreur: ' + err.message); }
+    setSyncing(false);
+  };
 
   // ── Update call status ────────────────────────────────────────────────────
   const updateCallStatus = async (orderId: string, newStatus: string) => {
@@ -68,6 +104,13 @@ export default function AdminOrdersPage() {
     setOrders(prev =>
       prev.map(o => o.id === orderId ? { ...o, call_status: newStatus } : o)
     );
+    
+    if (newStatus === 'confirmed') {
+      const order = ordersRef.current.find(o => o.id === orderId) || orders.find(o => o.id === orderId);
+      if (order && !order.cosmos_barcode) {
+        confirmOrderAndDispatch({ ...order, call_status: newStatus });
+      }
+    }
   };
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -119,31 +162,7 @@ export default function AdminOrdersPage() {
     return () => { clearInterval(ticker); clearInterval(syncer); };
   }, [syncDeliveryStatus]);
 
-  // ── Confirm & dispatch ─────────────────────────────────────────────────────
-  const confirmOrderAndDispatch = async (order: OrderWithItems) => {
-    if (!confirm("Confirmer cette commande et l'envoyer à Cosmos ?")) return;
-    setSyncing(true);
-    try {
-      const quantity = (order.order_items ?? []).reduce((s, i) => s + (i.quantity || 1), 0);
-      const cosmosRes = await fetch('/api/cosmos/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name: order.customer_name, phone: order.phone,
-          city: order.city, total_price: order.total_price, quantity, order_id: order.id,
-        }),
-      });
-      if (cosmosRes.ok) {
-        const { data: delivery } = await cosmosRes.json();
-        await supabase.from('orders').update({
-          cosmos_barcode: delivery.barcode, cosmos_label_url: delivery.labelUrl,
-          cosmos_label_pdf_url: delivery.labelPdfUrl, cosmos_status: delivery.status || 'to-be-picked',
-        }).eq('id', order.id);
-        await fetchOrders();
-      } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
-    } catch (err: any) { alert('Erreur: ' + err.message); }
-    setSyncing(false);
-  };
+
 
   // ── Selection helpers ──────────────────────────────────────────────────────
   const toggleSelect = (id: string) => {
@@ -268,7 +287,6 @@ export default function AdminOrdersPage() {
                 <th>Statut</th>
                 <th>Produits</th>
                 <th>Total</th>
-                <th>Livraison</th>
                 {!viewArchived && <th>Étiquette</th>}
                 <th style={{ width: '50px' }}></th>
               </tr>
@@ -308,26 +326,7 @@ export default function AdminOrdersPage() {
                       </button>
                     </td>
                     <td>{order.total_price?.toFixed(3)} TND</td>
-                    <td>
-                      {order.cosmos_barcode ? (
-                        <span className={`${styles.deliveryBadge} ${styles[delivery?.cls ?? 'pending']}`}>
-                          {delivery?.label ?? order.cosmos_status ?? 'En attente'}
-                        </span>
-                      ) : (
-                        order.cosmos_status === 'pending' ? (
-                          <button
-                            className={`${styles.deliveryBadge} ${styles.pending}`}
-                            onClick={() => confirmOrderAndDispatch(order)}
-                            disabled={syncing || viewArchived}
-                            style={{ cursor: 'pointer', border: '1px solid var(--color-gold)' }}
-                          >
-                            Confirmer
-                          </button>
-                        ) : (
-                          <span className={`${styles.deliveryBadge} ${styles.noShipment}`}>Non envoyé</span>
-                        )
-                      )}
-                    </td>
+
                     {!viewArchived && (
                       <td>
                         {order.cosmos_barcode ? (
@@ -354,7 +353,7 @@ export default function AdminOrdersPage() {
               })}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={viewArchived ? 9 : 10} style={{ textAlign: 'center', padding: '32px' }}>
+                  <td colSpan={viewArchived ? 8 : 9} style={{ textAlign: 'center', padding: '32px' }}>
                     {viewArchived ? 'Aucune commande archivée.' : 'Aucune commande pour le moment.'}
                   </td>
                 </tr>
@@ -401,6 +400,8 @@ export default function AdminOrdersPage() {
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
         order={selectedOrder}
+        onStatusChange={updateCallStatus}
+        onOrderUpdated={fetchOrders}
       />
     </div>
   );

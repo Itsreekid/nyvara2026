@@ -10,6 +10,12 @@ const nextConfig: NextConfig = {
         hostname: 'vkrgfqjsixjsieqzykcx.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
+      {
+        // Cloudflare R2 public development URL
+        protocol: 'https',
+        hostname: 'pub-96ecbfcde03642529999eddf062d31f5.r2.dev',
+        pathname: '/**',
+      },
     ],
     // Image optimization settings
     formats: ['image/avif', 'image/webp'], // Modern formats
@@ -56,7 +62,7 @@ const nextConfig: NextConfig = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://vkrgfqjsixjsieqzykcx.supabase.co https://*.facebook.com https://*.facebook.net; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://vkrgfqjsixjsieqzykcx.supabase.co https://*.facebook.com https://*.facebook.net; frame-src 'self' https://*.facebook.com;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https://vkrgfqjsixjsieqzykcx.supabase.co https://pub-96ecbfcde03642529999eddf062d31f5.r2.dev https://*.facebook.com https://*.facebook.net; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://vkrgfqjsixjsieqzykcx.supabase.co wss://vkrgfqjsixjsieqzykcx.supabase.co wss://*.supabase.co https://pub-96ecbfcde03642529999eddf062d31f5.r2.dev https://*.r2.cloudflarestorage.com https://*.facebook.com https://*.facebook.net https://*.run.app https://*.on.aws; frame-src 'self' https://*.facebook.com;"
           }
         ],
       },

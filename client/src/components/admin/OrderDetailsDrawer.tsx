@@ -6,25 +6,69 @@ import { X, Edit } from 'lucide-react';
 import styles from './OrderDetailsDrawer.module.css';
 import type { ColorOption } from '@/types';
 import type { OrderWithItems } from '@/app/admin/orders/page';
+import StatusDropdown from './StatusDropdown';
+import { supabase } from '@/lib/supabase';
 
 interface DrawerProps {
   isOpen: boolean;
   onClose: () => void;
   order: any | null; // using any for now, will map to OrderWithItems
+  onStatusChange?: (id: string, status: string) => void;
+  onOrderUpdated?: () => void;
 }
 
-export default function OrderDetailsDrawer({ isOpen, onClose, order }: DrawerProps) {
+const CITIES = [
+  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba', 'Kairouan',
+  'Kasserine', 'Kebili', 'Le Kef', 'Mahdia', 'Manouba', 'Medenine', 'Monastir', 'Nabeul',
+  'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine', 'Tozeur', 'Tunis', 'Zaghouan'
+];
+
+export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusChange, onOrderUpdated }: DrawerProps) {
+  const [isEditing, setIsEditing] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [formData, setFormData] = React.useState({
+    customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: ''
+  });
+
+  React.useEffect(() => {
+    if (order) {
+      setFormData({
+        customer_name: order.customer_name || '',
+        phone: order.phone || '',
+        city: order.city || '',
+        address: order.address || '',
+        customer_email: order.customer_email || '',
+        private_note: order.private_note || ''
+      });
+      setIsEditing(false);
+    }
+  }, [order]);
+
   // Prevent body scroll when open
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
+      setIsEditing(false);
     }
     return () => {
       document.body.style.overflow = '';
     };
   }, [isOpen]);
+
+  const handleSave = async () => {
+    if (!order) return;
+    setIsSaving(true);
+    const { error } = await supabase.from('orders').update(formData).eq('id', order.id);
+    setIsSaving(false);
+    if (!error) {
+      setIsEditing(false);
+      onOrderUpdated?.();
+    } else {
+      alert('Error updating order: ' + error.message);
+    }
+  };
 
   if (!order) return null;
 
@@ -49,11 +93,17 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order }: DrawerPro
       />
       <div className={`${styles.drawer} ${isOpen ? styles.drawerOpen : ''}`}>
         <div className={styles.header}>
-          <h2 className={styles.headerTitle}>Order Details</h2>
+          <h2 className={styles.headerTitle}>{isEditing ? `Edit order n°${order.id.slice(0, 8)}` : 'Order Details'}</h2>
           <div className={styles.headerActions}>
-            <button className={styles.editBtn}>
-              <Edit size={14} /> Edit
-            </button>
+            {isEditing ? (
+              <button className={styles.saveBtn} onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            ) : (
+              <button className={styles.editBtn} onClick={() => setIsEditing(true)}>
+                <Edit size={14} /> Edit
+              </button>
+            )}
             <button className={styles.closeBtn} onClick={onClose}>
               <X size={18} />
             </button>
@@ -81,11 +131,27 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order }: DrawerPro
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Status</span>
                   <span className={styles.detailValue}>
-                    <span className={styles.statusBadge}>
-                      {order.cosmos_status === 'pending' ? 'Pending' : order.cosmos_status}
-                    </span>
+                    <StatusDropdown
+                      value={order.call_status ?? 'pending'}
+                      onChange={(newStatus) => onStatusChange?.(order.id, newStatus)}
+                    />
                   </span>
                 </div>
+                {(isEditing || formData.private_note) && (
+                  <div className={styles.detailRowCol}>
+                    <span className={styles.detailLabel}>Private note</span>
+                    {isEditing ? (
+                      <textarea
+                        className={styles.textareaInput}
+                        value={formData.private_note}
+                        onChange={(e) => setFormData(prev => ({ ...prev, private_note: e.target.value }))}
+                        placeholder="Add a private note"
+                      />
+                    ) : (
+                      <span className={styles.detailValue}>{formData.private_note}</span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -98,23 +164,46 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order }: DrawerPro
               <div className={styles.detailsList}>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Name</span>
-                  <span className={styles.detailValue}>{order.customer_name}</span>
+                  {isEditing ? (
+                    <input className={styles.textInput} value={formData.customer_name} onChange={(e) => setFormData(prev => ({...prev, customer_name: e.target.value}))} />
+                  ) : (
+                    <span className={styles.detailValue}>{order.customer_name}</span>
+                  )}
                 </div>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Phone</span>
-                  <span className={styles.detailValue}>{order.phone}</span>
+                  {isEditing ? (
+                    <input className={styles.textInput} value={formData.phone} onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))} />
+                  ) : (
+                    <span className={styles.detailValue}>{order.phone}</span>
+                  )}
                 </div>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>City</span>
-                  <span className={styles.detailValue}>{order.city}</span>
+                  {isEditing ? (
+                    <select className={styles.selectInput} value={formData.city} onChange={(e) => setFormData(prev => ({...prev, city: e.target.value}))}>
+                      <option value="">Select a city</option>
+                      {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <span className={styles.detailValue}>{order.city}</span>
+                  )}
                 </div>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Address</span>
-                  <span className={styles.detailValue}>{order.address || '—'}</span>
+                  {isEditing ? (
+                    <input className={styles.textInput} value={formData.address} onChange={(e) => setFormData(prev => ({...prev, address: e.target.value}))} />
+                  ) : (
+                    <span className={styles.detailValue}>{order.address || '—'}</span>
+                  )}
                 </div>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Email</span>
-                  <span className={styles.detailValue}>{order.customer_email || '—'}</span>
+                  {isEditing ? (
+                    <input className={styles.textInput} value={formData.customer_email} onChange={(e) => setFormData(prev => ({...prev, customer_email: e.target.value}))} />
+                  ) : (
+                    <span className={styles.detailValue}>{order.customer_email || '—'}</span>
+                  )}
                 </div>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Country</span>
