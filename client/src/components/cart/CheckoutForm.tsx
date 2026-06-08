@@ -7,6 +7,12 @@ import { Check, Loader2, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import styles from './CheckoutForm.module.css';
 import { fbEvent, trackPurchase } from '@/components/analytics/FacebookPixel';
 
+const CITIES = [
+  'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba', 'Kairouan',
+  'Kasserine', 'Kebili', 'Le Kef', 'Mahdia', 'Manouba', 'Medenine', 'Monastir', 'Nabeul',
+  'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine', 'Tozeur', 'Tunis', 'Zaghouan'
+];
+
 interface CheckoutFormProps {
   onSuccess: (orderId: string) => void;
 }
@@ -60,6 +66,7 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
       city: formData.ville,
       postal_code: formData.code_postal,
       country: formData.pays,
+      address: formData.adresse,
       items: items.map(item => ({
         product_id: item.product.id,
         quantity: item.quantity,
@@ -156,15 +163,16 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
             />
           </div>
           <div className={styles.inputGroup}>
-            <input
-              type="text"
+            <select
               name="ville"
-              placeholder="Ville"
-              className={styles.input}
+              className={`${styles.input} ${styles.select}`}
               value={formData.ville}
               onChange={handleChange}
               required
-            />
+            >
+              <option value="" disabled>Sélectionnez une ville</option>
+              {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
           </div>
         </div>
 

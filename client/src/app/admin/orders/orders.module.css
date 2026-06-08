@@ -382,3 +382,24 @@
   font-weight: 700;
   padding: 0 6px;
 }
+
+/* -- Eye Action Button -- */
+.eyeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-grey);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.eyeBtn:hover {
+  background: var(--color-gold);
+  border-color: var(--color-gold);
+  color: #000;
+  transform: translateY(-1px);
+}

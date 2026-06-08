@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+<<<<<<< HEAD
 import { normalizeProductImageUrl } from '@/lib/r2';
+=======
+import { normalizeImageUrl } from '@/lib/r2';
+>>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
 
-// ─── Supabase server-side client ──────────────────────────────────────────────
+// ─── Supabase server-side client (service role — bypasses RLS) ───────────────
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 const SITE_URL = 'https://nyvara.net';
@@ -54,7 +58,11 @@ function productToItem(p: MetaProductRow): string {
   const description = esc(p.description ?? 'Lunettes de soleil de luxe — Nyvara Tunisia');
   const price       = formatPrice(p.final_price ?? p.price ?? 0);
   const link        = `${SITE_URL}/shop/${p.id}`;
+<<<<<<< HEAD
   const imageLink   = normalizeProductImageUrl(p.image_url);
+=======
+  const imageLink = normalizeImageUrl(p.image_url);
+>>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
   const availability = (p.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
   const gender      = mapGender(p.gender);
   

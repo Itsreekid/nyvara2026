@@ -67,7 +67,7 @@ export function useCreateOrder() {
           return { id: i.product_id, price: applicableBreak.total_price / totalQty };
         } else {
           const hasDiscount = p.discount != null && p.discount > 0;
-          const finalPrice = hasDiscount ? (p.price ?? 0) * (1 - p.discount / 100) : (p.price ?? 0);
+          const finalPrice = hasDiscount ? Math.round((p.price ?? 0) * (1 - p.discount / 100)) : (p.price ?? 0);
           return { id: i.product_id, price: finalPrice };
         }
       });
@@ -87,6 +87,7 @@ export function useCreateOrder() {
           city:           payload.city,
           postal_code:    payload.postal_code,
           country:        payload.country,
+          address:        payload.address,
           total_price,
         })
         .select()

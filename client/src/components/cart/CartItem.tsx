@@ -53,7 +53,7 @@ export default function CartItem({ item }: CartItemProps) {
         <p className={styles.price}>
           {formatTND(
             (product.discount != null && product.discount > 0
-              ? (product.price ?? 0) * (1 - product.discount / 100)
+              ? Math.round((product.price ?? 0) * (1 - product.discount / 100))
               : (product.price ?? 0)) * quantity
           )}
         </p>

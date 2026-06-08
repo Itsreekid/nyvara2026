@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import { ShoppingBag, Archive, ArchiveRestore, CheckSquare } from 'lucide-react';
+import { ShoppingBag, Archive, ArchiveRestore, CheckSquare, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import Modal from '@/components/ui/Modal';
+import OrderDetailsDrawer from '@/components/admin/OrderDetailsDrawer';
 import StatusDropdown from '@/components/admin/StatusDropdown';
 import type { Order, ColorOption } from '@/types';
 import adminStyles from '../admin.module.css';
@@ -26,7 +26,7 @@ const DELIVERY_STATUS: Record<string, { label: string; cls: string }> = {
   'return-in-transfer': { label: 'Inter-retour',  cls: 'returned'   },
 };
 
-interface OrderItem {
+export interface OrderItem {
   id: string;
   quantity: number;
   quantity_break_price: number | null;
@@ -34,7 +34,7 @@ interface OrderItem {
   products: { title: string; price: number | null; discount: number | null; image_url: string | null; color_options: ColorOption[] | null } | null;
 }
 
-interface OrderWithItems extends Order {
+export interface OrderWithItems extends Order {
   order_items: OrderItem[];
   archived: boolean;
   call_status: string;
@@ -57,10 +57,46 @@ export default function AdminOrdersPage() {
   // Items modal
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
 
+  // Sync selected order with latest data from table
+  useEffect(() => {
+    if (selectedOrder) {
+      const updated = orders.find(o => o.id === selectedOrder.id);
+      if (updated && updated !== selectedOrder) {
+        setSelectedOrder(updated);
+      }
+    }
+  }, [orders, selectedOrder]);
+
   // Pagination
   const [page, setPage]             = useState(0);
   const [pageSize, setPageSize]     = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+
+  // ── Confirm & dispatch ─────────────────────────────────────────────────────
+  const confirmOrderAndDispatch = async (order: OrderWithItems) => {
+    if (!confirm("Confirmer cette commande et l'envoyer à Cosmos ?")) return;
+    setSyncing(true);
+    try {
+      const quantity = (order.order_items ?? []).reduce((s, i) => s + (i.quantity || 1), 0);
+      const cosmosRes = await fetch('/api/cosmos/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          customer_name: order.customer_name, phone: order.phone,
+          city: order.city, total_price: order.total_price, quantity, order_id: order.id,
+        }),
+      });
+      if (cosmosRes.ok) {
+        const { data: delivery } = await cosmosRes.json();
+        await supabase.from('orders').update({
+          cosmos_barcode: delivery.barcode, cosmos_label_url: delivery.labelUrl,
+          cosmos_label_pdf_url: delivery.labelPdfUrl, cosmos_status: delivery.status || 'to-be-picked',
+        }).eq('id', order.id);
+        await fetchOrders();
+      } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
+    } catch (err: any) { alert('Erreur: ' + err.message); }
+    setSyncing(false);
+  };
 
   // ── Update call status ────────────────────────────────────────────────────
   const updateCallStatus = async (orderId: string, newStatus: string) => {
@@ -68,6 +104,13 @@ export default function AdminOrdersPage() {
     setOrders(prev =>
       prev.map(o => o.id === orderId ? { ...o, call_status: newStatus } : o)
     );
+    
+    if (newStatus === 'confirmed') {
+      const order = ordersRef.current.find(o => o.id === orderId) || orders.find(o => o.id === orderId);
+      if (order && !order.cosmos_barcode) {
+        confirmOrderAndDispatch({ ...order, call_status: newStatus });
+      }
+    }
   };
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -119,31 +162,7 @@ export default function AdminOrdersPage() {
     return () => { clearInterval(ticker); clearInterval(syncer); };
   }, [syncDeliveryStatus]);
 
-  // ── Confirm & dispatch ─────────────────────────────────────────────────────
-  const confirmOrderAndDispatch = async (order: OrderWithItems) => {
-    if (!confirm("Confirmer cette commande et l'envoyer à Cosmos ?")) return;
-    setSyncing(true);
-    try {
-      const quantity = (order.order_items ?? []).reduce((s, i) => s + (i.quantity || 1), 0);
-      const cosmosRes = await fetch('/api/cosmos/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name: order.customer_name, phone: order.phone,
-          city: order.city, total_price: order.total_price, quantity, order_id: order.id,
-        }),
-      });
-      if (cosmosRes.ok) {
-        const { data: delivery } = await cosmosRes.json();
-        await supabase.from('orders').update({
-          cosmos_barcode: delivery.barcode, cosmos_label_url: delivery.labelUrl,
-          cosmos_label_pdf_url: delivery.labelPdfUrl, cosmos_status: delivery.status || 'to-be-picked',
-        }).eq('id', order.id);
-        await fetchOrders();
-      } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
-    } catch (err: any) { alert('Erreur: ' + err.message); }
-    setSyncing(false);
-  };
+
 
   // ── Selection helpers ──────────────────────────────────────────────────────
   const toggleSelect = (id: string) => {
@@ -265,13 +284,11 @@ export default function AdminOrdersPage() {
                 <th>ID</th>
                 <th>Client</th>
                 <th>Téléphone</th>
-                <th>Ville</th>
                 <th>Statut</th>
                 <th>Produits</th>
-                <th>Date</th>
                 <th>Total</th>
-                <th>Livraison</th>
                 {!viewArchived && <th>Étiquette</th>}
+                <th style={{ width: '50px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -296,7 +313,6 @@ export default function AdminOrdersPage() {
                     <td>#{order.id.slice(0, 8)}</td>
                     <td>{order.customer_name}</td>
                     <td>{order.phone}</td>
-                    <td>{order.city}</td>
                     <td>
                       <StatusDropdown
                         value={order.call_status ?? 'pending'}
@@ -309,28 +325,8 @@ export default function AdminOrdersPage() {
                         <span>{itemCount} article{itemCount !== 1 ? 's' : ''}</span>
                       </button>
                     </td>
-                    <td>{new Date(order.created_at || '').toLocaleDateString('fr-FR')}</td>
                     <td>{order.total_price?.toFixed(3)} TND</td>
-                    <td>
-                      {order.cosmos_barcode ? (
-                        <span className={`${styles.deliveryBadge} ${styles[delivery?.cls ?? 'pending']}`}>
-                          {delivery?.label ?? order.cosmos_status ?? 'En attente'}
-                        </span>
-                      ) : (
-                        order.cosmos_status === 'pending' ? (
-                          <button
-                            className={`${styles.deliveryBadge} ${styles.pending}`}
-                            onClick={() => confirmOrderAndDispatch(order)}
-                            disabled={syncing || viewArchived}
-                            style={{ cursor: 'pointer', border: '1px solid var(--color-gold)' }}
-                          >
-                            Confirmer
-                          </button>
-                        ) : (
-                          <span className={`${styles.deliveryBadge} ${styles.noShipment}`}>Non envoyé</span>
-                        )
-                      )}
-                    </td>
+
                     {!viewArchived && (
                       <td>
                         {order.cosmos_barcode ? (
@@ -343,12 +339,21 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
                     )}
+                    <td>
+                      <button 
+                        className={styles.eyeBtn} 
+                        onClick={() => setSelectedOrder(order)}
+                        title="Voir les détails"
+                      >
+                        <Eye size={18} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={viewArchived ? 9 : 10} style={{ textAlign: 'center', padding: '32px' }}>
+                  <td colSpan={viewArchived ? 8 : 9} style={{ textAlign: 'center', padding: '32px' }}>
                     {viewArchived ? 'Aucune commande archivée.' : 'Aucune commande pour le moment.'}
                   </td>
                 </tr>
@@ -390,64 +395,14 @@ export default function AdminOrdersPage() {
 
       </div>
 
-      {/* ── Order Items Modal ── */}
-      <Modal
+      {/* ── Order Details Drawer ── */}
+      <OrderDetailsDrawer
         isOpen={!!selectedOrder}
         onClose={() => setSelectedOrder(null)}
-        title={`Commande #${selectedOrder?.id.slice(0, 8)} — ${selectedOrder?.customer_name}`}
-        size="md"
-      >
-        {items.length === 0 ? (
-          <p style={{ color: '#888', textAlign: 'center', padding: '20px 0' }}>
-            Aucun article enregistré pour cette commande.
-          </p>
-        ) : (
-          <div className={styles.itemsList}>
-            {items.map(item => {
-              const matchingColor = item.products?.color_options?.find(
-                (co: ColorOption) => co.name === item.selected_color_name
-              );
-              const imageUrl = matchingColor?.image_url || item.products?.image_url;
-
-              return (
-                <div key={item.id} className={styles.itemRow}>
-                  {imageUrl && (
-                    <Image
-                      src={imageUrl}
-                      alt={item.products?.title ?? 'Produit'}
-                      width={48}
-                      height={48}
-                      className={styles.itemImg}
-                      unoptimized
-                    />
-                  )}
-                  <div className={styles.itemInfo}>
-                    <span className={styles.itemName}>
-                      {item.products?.title ?? 'Produit inconnu'} {item.selected_color_name ? `(${item.selected_color_name})` : ''}
-                    </span>
-                    <span className={styles.itemQty}>Qté : {item.quantity}</span>
-                  </div>
-                  <div className={styles.itemPrice}>
-                    {item.quantity_break_price != null 
-                      ? `${(item.quantity_break_price * item.quantity).toFixed(3)} TND`
-                      : item.products?.price != null ? (() => {
-                          const disc = item.products.discount;
-                          const unit = disc != null && disc > 0
-                            ? item.products.price * (1 - disc / 100)
-                            : item.products.price;
-                          return `${(unit * item.quantity).toFixed(3)} TND`;
-                        })() : '—'}
-                  </div>
-                </div>
-              );
-            })}
-            <div className={styles.itemsTotal}>
-              <span>Total articles</span>
-              <span>{itemsTotal.toFixed(3)} TND</span>
-            </div>
-          </div>
-        )}
-      </Modal>
+        order={selectedOrder}
+        onStatusChange={updateCallStatus}
+        onOrderUpdated={fetchOrders}
+      />
     </div>
   );
 }

@@ -9,8 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+<<<<<<< HEAD
     "@aws-sdk/client-s3": "^3.866.0",
     "@aws-sdk/s3-request-presigner": "^3.866.0",
+=======
+    "@aws-sdk/client-s3": "^3.1063.0",
+    "@aws-sdk/s3-request-presigner": "^3.1063.0",
+>>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
     "@supabase/supabase-js": "^2.103.0",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",

@@ -54,6 +54,7 @@ export interface Order {
   city: string | null;
   postal_code: string | null;
   country: string | null;
+  address: string | null;
   total_price: number | null;
   status?: string | null;
   created_at: string | null;
@@ -101,6 +102,7 @@ export interface CreateOrderPayload {
   city: string;
   postal_code?: string;
   country: string;
+  address: string;
   items: { product_id: string; quantity: number; selected_color?: ColorOption; quantity_break_price?: number }[];
 }
 

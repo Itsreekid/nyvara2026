@@ -8,9 +8,12 @@ import type { Product, Category, ColorOption, QuantityBreak } from '@/types';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { compressToWebP } from '@/lib/compressImage';
 import { PlusCircle, Trash2, ImageIcon, Loader2 } from 'lucide-react';
 import adminStyles from '../admin.module.css';
 import styles from './products.module.css';
+
+type GalleryPhase = 'idle' | 'compressing' | 'uploading';
 
 type FormState = {
   title: string;
@@ -53,8 +56,8 @@ export default function AdminProductsPage() {
   const [specRows, setSpecRows]           = useState<SpecRow[]>([]);
 
   // Gallery
-  const [galleryImages, setGalleryImages]       = useState<GalleryImage[]>([]);
-  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [galleryImages, setGalleryImages]   = useState<GalleryImage[]>([]);
+  const [galleryPhase, setGalleryPhase]     = useState<GalleryPhase>('idle');
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Colors
@@ -131,12 +134,13 @@ export default function AdminProductsPage() {
 
     // Calculate discount percentage from original price and final price
     const price = parseFloat(formData.price) || 0;
-    const finalPrice = formData.final_price ? parseFloat(formData.final_price) : 0;
+    const finalPriceRaw = formData.final_price ? parseFloat(formData.final_price) : 0;
+    const finalPrice = finalPriceRaw > 0 ? Math.round(finalPriceRaw) : 0;
     let discountPercentage = null;
     
     if (price > 0 && finalPrice > 0 && finalPrice < price) {
-      // Calculate discount: ((original - final) / original) * 100
-      discountPercentage = Math.round(((price - finalPrice) / price) * 10000) / 100; // Keep 2 decimals
+      // Calculate discount and store as integer
+      discountPercentage = Math.round(((price - finalPrice) / price) * 100);
     }
 
     const payload = {
@@ -180,15 +184,52 @@ export default function AdminProductsPage() {
     fetchAll();
   };
 
-  // ── Gallery upload ─────────────────────────────────────────────────────────
+  // ── Gallery upload — client-side compression + Presigned URL ─────────────
   const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editingProduct) return;
 
-    setUploadingGallery(true);
     try {
+<<<<<<< HEAD
       const publicUrl = await uploadImageToR2(file);
+=======
+      // Phase 1: Compress & convert to WebP in the browser (zero server cost)
+      setGalleryPhase('compressing');
+      const webpBlob = await compressToWebP(file);
 
+      // Phase 2: Fetch a Pre-Signed PUT URL (~15 ms serverless execution)
+      setGalleryPhase('uploading');
+      const presignRes = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: 'image.webp',
+          contentType: 'image/webp',
+          folder: 'gallery',
+        }),
+      });
+>>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
+
+      if (!presignRes.ok) {
+        const body = await presignRes.json().catch(() => ({ error: 'Erreur serveur' }));
+        throw new Error(body.error ?? 'Impossible de générer l\'URL de téléchargement.');
+      }
+
+      const { uploadUrl, publicUrl }: { uploadUrl: string; publicUrl: string } =
+        await presignRes.json();
+
+      // Phase 3: PUT the WebP blob directly to Cloudflare R2
+      const putRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'image/webp' },
+        body: webpBlob,
+      });
+
+      if (!putRes.ok) {
+        throw new Error(`R2 PUT échoué — statut ${putRes.status}`);
+      }
+
+      // Phase 4: Save the R2 public URL in the product_images table
       const nextOrder = galleryImages.length;
       const { data: img, error: dbErr } = await supabase
         .from('product_images')
@@ -199,9 +240,13 @@ export default function AdminProductsPage() {
       setGalleryImages(prev => [...prev, img as GalleryImage]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
+<<<<<<< HEAD
       alert('Erreur upload : ' + message);
+=======
+      alert('Erreur upload galerie : ' + message);
+>>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
     } finally {
-      setUploadingGallery(false);
+      setGalleryPhase('idle');
       if (galleryInputRef.current) galleryInputRef.current.value = '';
     }
   };
@@ -279,7 +324,7 @@ export default function AdminProductsPage() {
                   </td>
                   <td>
                     {p.discount != null
-                      ? <span className={styles.discountBadge}>-{p.discount}%</span>
+                      ? <span className={styles.discountBadge}>-{Math.round(p.discount)}%</span>
                       : <span className={styles.noCost}>—</span>}
                   </td>
                   <td>
@@ -450,6 +495,7 @@ export default function AdminProductsPage() {
                       value={co.image_url}
                       onChange={url => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, image_url: url } : c))}
                       onUploading={status => setUploadingImage(status)}
+                      folder="colors"
                     />
                   </div>
                   <div className={styles.colorOptionImage}>
@@ -458,6 +504,7 @@ export default function AdminProductsPage() {
                       value={co.image_url2 || ''}
                       onChange={url => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, image_url2: url || null } : c))}
                       onUploading={status => setUploadingImage(status)}
+                      folder="colors"
                     />
                   </div>
                   <div className={styles.colorOptionDetails}>
@@ -583,13 +630,19 @@ export default function AdminProductsPage() {
                   type="button"
                   className={styles.galleryAddBtn}
                   onClick={() => galleryInputRef.current?.click()}
-                  disabled={uploadingGallery}
+                  disabled={galleryPhase !== 'idle'}
                   title="Ajouter une photo"
                 >
-                  {uploadingGallery
-                    ? <Loader2 size={20} className={styles.gallerySpinner} />
-                    : <><PlusCircle size={20} /><span>Ajouter</span></>
-                  }
+                  {galleryPhase !== 'idle' ? (
+                    <>
+                      <Loader2 size={20} className={styles.gallerySpinner} />
+                      <span style={{ fontSize: '11px' }}>
+                        {galleryPhase === 'compressing' ? 'Compression...' : 'Envoi R2...'}
+                      </span>
+                    </>
+                  ) : (
+                    <><PlusCircle size={20} /><span>Ajouter</span></>
+                  )}
                 </button>
 
                 <input
@@ -615,10 +668,10 @@ export default function AdminProductsPage() {
             type="submit"
             variant="primary"
             style={{ width: '100%', marginTop: '8px' }}
-            disabled={submitting || uploadingImage || uploadingGallery}
+            disabled={submitting || uploadingImage || galleryPhase !== 'idle'}
           >
             {submitting ? 'Enregistrement...'
-              : uploadingImage ? 'Téléchargement...'
+              : uploadingImage ? 'Compression / Envoi...'
               : editingProduct ? '💾 Enregistrer les modifications'
               : 'Ajouter le produit'}
           </Button>
