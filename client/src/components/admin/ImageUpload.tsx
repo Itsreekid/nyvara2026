@@ -3,12 +3,8 @@
 import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import { UploadCloud, X, Loader2 } from 'lucide-react';
-<<<<<<< HEAD
 import { uploadImageToR2 } from '@/lib/r2-upload';
-=======
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
 import styles from './ImageUpload.module.css';
-import { compressToWebP } from '@/lib/compressImage';
 
 interface ImageUploadProps {
   value: string;
@@ -17,8 +13,7 @@ interface ImageUploadProps {
   folder?: 'products' | 'gallery' | 'colors';
 }
 
-// Two-phase upload progress label
-type UploadPhase = 'idle' | 'compressing' | 'uploading';
+type UploadPhase = 'idle' | 'uploading';
 
 export default function ImageUpload({
   value,
@@ -26,9 +21,9 @@ export default function ImageUpload({
   onUploading,
   folder = 'products',
 }: ImageUploadProps) {
-  const [isDragging, setIsDragging]   = useState(false);
-  const [phase, setPhase]             = useState<UploadPhase>('idle');
-  const fileInputRef                  = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [phase, setPhase] = useState<UploadPhase>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isUploading = phase !== 'idle';
 
@@ -63,60 +58,14 @@ export default function ImageUpload({
     }
 
     onUploading(true);
+    setPhase('uploading');
 
     try {
-<<<<<<< HEAD
-      const publicUrl = await uploadImageToR2(file);
-      onChange(publicUrl);
-
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erreur inconnue';
-      console.error('Upload error:', error);
-=======
-      // ── Phase 1: Client-side compression (browser CPU, zero server cost) ──
-      setPhase('compressing');
-      const webpBlob = await compressToWebP(file);
-
-      // ── Phase 2: Get a Pre-Signed URL from the serverless function (~15 ms) ──
-      setPhase('uploading');
-      const presignRes = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: 'image.webp',
-          contentType: 'image/webp',
-          folder,
-        }),
-      });
-
-      if (!presignRes.ok) {
-        const body = await presignRes.json().catch(() => ({ error: 'Réponse invalide du serveur' }));
-        throw new Error(body.error ?? "Erreur lors de la génération de l'URL de téléchargement.");
-      }
-
-      const { uploadUrl, publicUrl }: { uploadUrl: string; publicUrl: string } =
-        await presignRes.json();
-
-      // ── Phase 3: PUT the WebP blob directly to Cloudflare R2 ──
-      const putRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'image/webp',
-          // CacheControl header must be set via the presigned command, not the PUT request.
-        },
-        body: webpBlob,
-      });
-
-      if (!putRes.ok) {
-        throw new Error(`R2 PUT échoué — statut ${putRes.status}`);
-      }
-
-      // ── Done: pass permanent CDN URL back to the form ──
+      const publicUrl = await uploadImageToR2(file, folder);
       onChange(publicUrl);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('[ImageUpload] Upload error:', message);
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
       alert("Erreur lors du téléchargement de l'image : " + message);
     } finally {
       setPhase('idle');
@@ -130,7 +79,6 @@ export default function ImageUpload({
     onChange('');
   };
 
-  // ── Preview mode — image already set ──────────────────────────────────────
   if (value) {
     return (
       <div className={styles.previewContainer}>
@@ -154,7 +102,6 @@ export default function ImageUpload({
     );
   }
 
-  // ── Upload dropzone ────────────────────────────────────────────────────────
   return (
     <div
       className={`${styles.uploadContainer} ${isDragging ? styles.dragging : ''} ${isUploading ? styles.disabled : ''}`}
@@ -174,11 +121,7 @@ export default function ImageUpload({
       {isUploading ? (
         <div className={styles.loadingOverlay}>
           <Loader2 size={32} className={styles.spinner} />
-          <span>
-            {phase === 'compressing'
-              ? 'Compression en cours...'
-              : 'Envoi vers Cloudflare R2...'}
-          </span>
+          <span>Envoi vers Cloudflare R2...</span>
         </div>
       ) : (
         <>

@@ -8,7 +8,6 @@ import type { Product, Category, ColorOption, QuantityBreak } from '@/types';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ImageUpload from '@/components/admin/ImageUpload';
-import { compressToWebP } from '@/lib/compressImage';
 import { PlusCircle, Trash2, ImageIcon, Loader2 } from 'lucide-react';
 import adminStyles from '../admin.module.css';
 import styles from './products.module.css';
@@ -184,52 +183,14 @@ export default function AdminProductsPage() {
     fetchAll();
   };
 
-  // ── Gallery upload — client-side compression + Presigned URL ─────────────
+  // ── Gallery upload — direct R2 upload ─────────────────────────────────────
   const handleGalleryFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !editingProduct) return;
 
     try {
-<<<<<<< HEAD
-      const publicUrl = await uploadImageToR2(file);
-=======
-      // Phase 1: Compress & convert to WebP in the browser (zero server cost)
-      setGalleryPhase('compressing');
-      const webpBlob = await compressToWebP(file);
-
-      // Phase 2: Fetch a Pre-Signed PUT URL (~15 ms serverless execution)
       setGalleryPhase('uploading');
-      const presignRes = await fetch('/api/upload-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          filename: 'image.webp',
-          contentType: 'image/webp',
-          folder: 'gallery',
-        }),
-      });
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
-
-      if (!presignRes.ok) {
-        const body = await presignRes.json().catch(() => ({ error: 'Erreur serveur' }));
-        throw new Error(body.error ?? 'Impossible de générer l\'URL de téléchargement.');
-      }
-
-      const { uploadUrl, publicUrl }: { uploadUrl: string; publicUrl: string } =
-        await presignRes.json();
-
-      // Phase 3: PUT the WebP blob directly to Cloudflare R2
-      const putRes = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'image/webp' },
-        body: webpBlob,
-      });
-
-      if (!putRes.ok) {
-        throw new Error(`R2 PUT échoué — statut ${putRes.status}`);
-      }
-
-      // Phase 4: Save the R2 public URL in the product_images table
+      const publicUrl = await uploadImageToR2(file, 'gallery');
       const nextOrder = galleryImages.length;
       const { data: img, error: dbErr } = await supabase
         .from('product_images')
@@ -240,11 +201,7 @@ export default function AdminProductsPage() {
       setGalleryImages(prev => [...prev, img as GalleryImage]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
-<<<<<<< HEAD
-      alert('Erreur upload : ' + message);
-=======
       alert('Erreur upload galerie : ' + message);
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
     } finally {
       setGalleryPhase('idle');
       if (galleryInputRef.current) galleryInputRef.current.value = '';

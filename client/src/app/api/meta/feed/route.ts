@@ -1,20 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-<<<<<<< HEAD
 import { normalizeProductImageUrl } from '@/lib/r2';
-=======
-import { normalizeImageUrl } from '@/lib/r2';
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
 
-// ─── Supabase server-side client (service role — bypasses RLS) ───────────────
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 const SITE_URL = 'https://nyvara.net';
-
-// Meta-required Google Product Category for sunglasses
 const GOOGLE_CATEGORY = 'Apparel &amp; Accessories &gt; Clothing Accessories &gt; Sunglasses';
 
 type MetaCategory = { name: string | null } | { name: string | null }[] | null;
@@ -34,15 +27,14 @@ type MetaProductRow = {
 
 function esc(s: string): string {
   return s
-    .replace(/&/g,  '&amp;')
-    .replace(/</g,  '&lt;')
-    .replace(/>/g,  '&gt;')
-    .replace(/"/g,  '&quot;')
-    .replace(/'/g,  '&apos;');
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
 function formatPrice(p: number): string {
-  // Meta requires "XX.XXX TND" format (ISO 4217 currency code)
   return `${p.toFixed(3)} TND`;
 }
 
@@ -53,19 +45,15 @@ function mapGender(g: string | null): string {
 }
 
 function productToItem(p: MetaProductRow): string {
-  const id          = p.id;
-  const title       = esc(p.title ?? 'Nyvara Sunglasses');
+  const id = p.id;
+  const title = esc(p.title ?? 'Nyvara Sunglasses');
   const description = esc(p.description ?? 'Lunettes de soleil de luxe — Nyvara Tunisia');
-  const price       = formatPrice(p.final_price ?? p.price ?? 0);
-  const link        = `${SITE_URL}/shop/${p.id}`;
-<<<<<<< HEAD
-  const imageLink   = normalizeProductImageUrl(p.image_url);
-=======
-  const imageLink = normalizeImageUrl(p.image_url);
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
+  const price = formatPrice(p.final_price ?? p.price ?? 0);
+  const link = `${SITE_URL}/shop/${p.id}`;
+  const imageLink = normalizeProductImageUrl(p.image_url);
   const availability = (p.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
-  const gender      = mapGender(p.gender);
-  
+  const gender = mapGender(p.gender);
+
   let categoryName = 'sunglasses';
   if (p.categories) {
     if (Array.isArray(p.categories)) {
@@ -74,8 +62,9 @@ function productToItem(p: MetaProductRow): string {
       categoryName = p.categories.name ?? 'sunglasses';
     }
   }
+
   const productType = esc(categoryName);
-  const brand       = 'Nyvara';
+  const brand = 'Nyvara';
 
   return `    <item>
       <g:id>${id}</g:id>
@@ -93,7 +82,7 @@ function productToItem(p: MetaProductRow): string {
     </item>`;
 }
 
-export const dynamic = 'force-dynamic'; // always fresh, never cached
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const { data: products, error } = await supabase
@@ -122,7 +111,6 @@ ${items}
     status: 200,
     headers: {
       'Content-Type': 'application/xml; charset=utf-8',
-      // Allow Meta to crawl; cache 1 hour max
       'Cache-Control': 'public, max-age=3600, stale-while-revalidate=86400',
     },
   });

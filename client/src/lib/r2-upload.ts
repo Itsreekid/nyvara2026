@@ -6,6 +6,8 @@ type PresignResponse = {
   key: string;
 };
 
+type UploadFolder = 'products' | 'gallery' | 'colors';
+
 function getFileExtension(file: File): string {
   const fromName = file.name.split('.').pop()?.toLowerCase();
   if (fromName && fromName.length <= 5) return fromName;
@@ -29,13 +31,14 @@ function buildUniqueFileName(file: File): string {
   return `${Date.now()}_${randomPart}.${extension}`;
 }
 
-export async function uploadImageToR2(file: File): Promise<string> {
+export async function uploadImageToR2(file: File, folder: UploadFolder = 'products'): Promise<string> {
   const response = await fetch('/api/upload-url', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       fileName: buildUniqueFileName(file),
       contentType: file.type || 'application/octet-stream',
+      folder,
     }),
   });
 

@@ -11,16 +11,15 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
       {
-<<<<<<< HEAD
         protocol: 'https',
         hostname: 'assets.nyvara.com',
         pathname: '/products/**',
-=======
+            },
+            {
         // Cloudflare R2 public development URL
         protocol: 'https',
         hostname: 'pub-96ecbfcde03642529999eddf062d31f5.r2.dev',
         pathname: '/**',
->>>>>>> a87fb02a84b1924bceb700243511fa91618d07e0
       },
     ],
     // Image optimization settings
