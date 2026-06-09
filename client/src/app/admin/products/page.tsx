@@ -258,12 +258,12 @@ export default function AdminProductsPage() {
                 <tr key={p.id}>
                   <td>
                     <Image
-                      src={p.image_url || ''}
+                      src={p.image_url || '/placeholder.png'}
                       alt={p.title || 'Product'}
                       width={48}
                       height={48}
                       className={styles.productImage}
-                      unoptimized={!p.image_url} // Skip optimization for empty images
+                      unoptimized
                     />
                   </td>
                   <td>{p.title}</td>
