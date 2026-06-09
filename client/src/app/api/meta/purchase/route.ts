@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
           event_name: 'Purchase',
           event_time: Math.floor(Date.now() / 1000),
           event_id,          // deduplication key
-          event_source_url:  req.headers.get('referer') ?? 'https://nyvara.com',
+          event_source_url:  req.headers.get('referer') ?? 'https://nyvara.net',
           action_source:     'website',
           user_data:         userData,
           custom_data: {
