@@ -40,6 +40,8 @@ export interface Product {
   created_at: string | null;
   category_id: string | null;
   gender: Gender | null;
+  brand: string | null;
+  google_product_category: string | null;
   color_options?: ColorOption[] | null;
   quantity_breaks?: QuantityBreak[] | null;
   // joined

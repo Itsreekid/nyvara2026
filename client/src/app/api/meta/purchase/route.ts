@@ -24,6 +24,7 @@ export async function POST(req: NextRequest) {
       city,
       country,
       content_ids,    // array of product IDs
+      contents,
       num_items,
     } = body;
 
@@ -39,6 +40,14 @@ export async function POST(req: NextRequest) {
     if (city)       userData.ct = hash(city);
     if (country)    userData.country = hash(country);
 
+    const normalizedContents = Array.isArray(contents)
+      ? contents.map((item: { id?: string; quantity?: number; item_price?: number }) => ({
+          id:         String(item.id ?? ''),
+          quantity:   Number(item.quantity ?? 1),
+          item_price: Number(item.item_price ?? 0),
+        }))
+      : [];
+
     const payload = {
       data: [
         {
@@ -53,12 +62,15 @@ export async function POST(req: NextRequest) {
             value:        value,
             order_id,
             content_ids,
+            contents:     normalizedContents,
             num_items,
             content_type: 'product',
           },
         },
       ],
-      test_event_code: process.env.META_TEST_EVENT_CODE ?? undefined, // remove in production
+      ...(process.env.META_TEST_EVENT_CODE
+        ? { test_event_code: process.env.META_TEST_EVENT_CODE }
+        : {}),
     };
 
     const fbRes = await fetch(

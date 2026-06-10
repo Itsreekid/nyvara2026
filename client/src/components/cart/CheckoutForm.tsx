@@ -6,6 +6,7 @@ import { useCreateOrder } from '@/hooks/useOrders';
 import { Check, Loader2, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import styles from './CheckoutForm.module.css';
 import { fbEvent, trackPurchase } from '@/components/analytics/FacebookPixel';
+import { buildPurchaseContents } from '@/lib/meta-purchase';
 
 const CITIES = [
   'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba', 'Kairouan',
@@ -77,6 +78,8 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
     const result = await createOrder(payload);
 
     if (result) {
+      const contents = buildPurchaseContents(items);
+
       // Fire Purchase on both client pixel + server CAPI for reliable attribution
       await trackPurchase({
         order_id:    String(result.id ?? Date.now()),
@@ -88,6 +91,7 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
         city:        formData.ville,
         country:     formData.pays,
         content_ids: items.map(i => String(i.product.id)),
+        contents,
         num_items:   items.reduce((s, i) => s + i.quantity, 0),
       });
       clearCart();

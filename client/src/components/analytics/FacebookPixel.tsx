@@ -105,6 +105,7 @@ export interface PurchaseParams {
   country?: string;
   content_ids: string[];
   num_items: number;
+  contents: { id: string; quantity: number; item_price: number }[];
 }
 
 /**
@@ -121,6 +122,7 @@ export async function trackPurchase(params: PurchaseParams): Promise<void> {
     {
       value:        params.value,
       content_ids:  params.content_ids,
+      contents:     params.contents,
       num_items:    params.num_items,
       content_type: 'product',
     },

@@ -57,6 +57,7 @@ export default function AdminProductsPage() {
   // Gallery
   const [galleryImages, setGalleryImages]   = useState<GalleryImage[]>([]);
   const [galleryPhase, setGalleryPhase]     = useState<GalleryPhase>('idle');
+  const [galleryError, setGalleryError]     = useState('');
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // Colors
@@ -189,6 +190,7 @@ export default function AdminProductsPage() {
     if (!file || !editingProduct) return;
 
     try {
+      setGalleryError('');
       setGalleryPhase('uploading');
       const publicUrl = await uploadImageToR2(file, 'gallery');
       const nextOrder = galleryImages.length;
@@ -201,7 +203,7 @@ export default function AdminProductsPage() {
       setGalleryImages(prev => [...prev, img as GalleryImage]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erreur inconnue';
-      alert('Erreur upload galerie : ' + message);
+      setGalleryError(message);
     } finally {
       setGalleryPhase('idle');
       if (galleryInputRef.current) galleryInputRef.current.value = '';
@@ -613,6 +615,11 @@ export default function AdminProductsPage() {
               <p className={styles.galleryHint}>
                 Ces photos s&apos;affichent dans la galerie de la page produit.
               </p>
+              {galleryError && (
+                <p role="alert" style={{ color: 'var(--color-error)', marginTop: '8px', fontSize: '12px' }}>
+                  {galleryError}
+                </p>
+              )}
             </div>
           )}
 

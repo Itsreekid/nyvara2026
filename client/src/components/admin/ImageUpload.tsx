@@ -23,6 +23,7 @@ export default function ImageUpload({
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [phase, setPhase] = useState<UploadPhase>('idle');
+  const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isUploading = phase !== 'idle';
@@ -53,10 +54,11 @@ export default function ImageUpload({
 
   const uploadFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
-      alert('Veuillez sélectionner une image valide.');
+      setErrorMessage('Veuillez sélectionner une image valide.');
       return;
     }
 
+    setErrorMessage('');
     onUploading(true);
     setPhase('uploading');
 
@@ -66,7 +68,7 @@ export default function ImageUpload({
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erreur inconnue';
       console.error('[ImageUpload] Upload error:', message);
-      alert("Erreur lors du téléchargement de l'image : " + message);
+      setErrorMessage(message);
     } finally {
       setPhase('idle');
       onUploading(false);
@@ -103,33 +105,40 @@ export default function ImageUpload({
   }
 
   return (
-    <div
-      className={`${styles.uploadContainer} ${isDragging ? styles.dragging : ''} ${isUploading ? styles.disabled : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={() => !isUploading && fileInputRef.current?.click()}
-    >
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileSelect}
-        accept="image/*"
-        className={styles.hiddenInput}
-      />
+    <>
+      <div
+        className={`${styles.uploadContainer} ${isDragging ? styles.dragging : ''} ${isUploading ? styles.disabled : ''}`}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+      >
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileSelect}
+          accept="image/*"
+          className={styles.hiddenInput}
+        />
 
-      {isUploading ? (
-        <div className={styles.loadingOverlay}>
-          <Loader2 size={32} className={styles.spinner} />
-          <span>Envoi vers Cloudflare R2...</span>
-        </div>
-      ) : (
-        <>
-          <UploadCloud size={40} className={styles.icon} />
-          <h3 className={styles.title}>Glissez une image ici</h3>
-          <p className={styles.subtitle}>ou cliquez pour parcourir (JPG, PNG, WebP)</p>
-        </>
+        {isUploading ? (
+          <div className={styles.loadingOverlay}>
+            <Loader2 size={32} className={styles.spinner} />
+            <span>Envoi vers Cloudflare R2...</span>
+          </div>
+        ) : (
+          <>
+            <UploadCloud size={40} className={styles.icon} />
+            <h3 className={styles.title}>Glissez une image ici</h3>
+            <p className={styles.subtitle}>ou cliquez pour parcourir (JPG, PNG, WebP)</p>
+          </>
+        )}
+      </div>
+      {errorMessage && (
+        <p role="alert" style={{ color: 'var(--color-error)', marginTop: '8px', fontSize: '12px' }}>
+          {errorMessage}
+        </p>
       )}
-    </div>
+    </>
   );
 }

@@ -2,7 +2,6 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
 import { Heart, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
@@ -24,8 +23,6 @@ const formatTND = (price: number | null) => {
 export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const { addItem, isInCart } = useCart();
   const { addToWishlist, removeFromWishlist, isWishlisted } = useWishlist();
-  const viewFired = useRef(false);
-  const cardRef   = useRef<HTMLElement>(null);
 
   const inCart     = isInCart(product.id);
   const wishlisted = isWishlisted(product.id);
@@ -36,34 +33,13 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     ? Math.round(product.price * (1 - product.discount! / 100))
     : null;
 
-  // Fire ViewContent once when card enters viewport (retargeting signal)
-  useEffect(() => {
-    if (!cardRef.current || viewFired.current) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !viewFired.current) {
-          viewFired.current = true;
-          fbEvent.viewContent({
-            content_ids:  [String(product.id)],
-            content_name: product.title ?? 'Sunglasses',
-            value:        product.price ?? 0,
-          });
-          observer.disconnect();
-        }
-      },
-      { threshold: 0.5 }
-    );
-    observer.observe(cardRef.current);
-    return () => observer.disconnect();
-  }, [product]);
-
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // prevent navigation when clicking Add to Cart
     addItem(product);
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
       content_name: product.title ?? 'Sunglasses',
-      value:        product.price ?? 0,
+      value:        product.final_price ?? product.price ?? 0,
     });
   };
 
@@ -88,7 +64,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
 
   return (
     <Link href={`/shop/${product.id}`} style={{ textDecoration: 'none' }}>
-      <article ref={cardRef} className={styles.card} aria-label={product.title ?? 'Product'}>
+      <article className={styles.card} aria-label={product.title ?? 'Product'}>
         {/* Image */}
         <div className={styles.imageWrap}>
           {product.image_url ? (

@@ -3,7 +3,8 @@
 import { useState, useMemo } from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import type { Product } from '@/types';
-import { normalizeProductImageUrl } from '@/lib/r2';
+import { supabase } from '@/lib/supabase';
+import { buildMetaCatalogCsvRow, buildMetaCatalogXmlItem } from '@/lib/meta-catalog';
 import adminStyles from '@/app/admin/admin.module.css';
 import styles from './catalog-ad.module.css';
 import {
@@ -15,67 +16,40 @@ import {
 
 const SITE_URL = 'https://nyvara.net';
 
-function formatPrice(p: number) {
-  // Meta requires price in format "XX.XX TND"
-  return `${p.toFixed(3)} TND`;
-}
-
-function productToXmlItem(p: Product): string {
-  const title       = (p.title ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const description = (p.description ?? 'Lunettes de soleil Nyvara').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const price       = formatPrice(p.final_price ?? p.price ?? 0);
-  const link        = `${SITE_URL}/shop/${p.id}`;
-  const imageLink   = normalizeProductImageUrl(p.image_url);
-  const availability = (p.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
-  const brand       = 'Nyvara';
-  const condition   = 'new';
-  const gender      = p.gender === 'homme' ? 'male' : p.gender === 'femme' ? 'female' : 'unisex';
-
-  return `  <item>
-    <g:id>${p.id}</g:id>
-    <g:title>${title}</g:title>
-    <g:description>${description}</g:description>
-    <g:link>${link}</g:link>
-    <g:image_link>${imageLink}</g:image_link>
-    <g:availability>${availability}</g:availability>
-    <g:price>${price}</g:price>
-    <g:brand>${brand}</g:brand>
-    <g:condition>${condition}</g:condition>
-    <g:google_product_category>Apparel &amp; Accessories &gt; Clothing Accessories &gt; Sunglasses</g:google_product_category>
-    <g:gender>${gender}</g:gender>${p.badge ? `\n    <g:custom_label_0>${p.badge}</g:custom_label_0>` : ''}
-  </item>`;
-}
-
-function buildXml(products: Product[]): string {
+function buildXml(products: Product[], galleryByProduct: Record<string, string[]> = {}): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>Nyvara — Catalogue Produits</title>
     <link>${SITE_URL}</link>
     <description>Catalogue Meta Dynamic Ads — Nyvara Sunglasses</description>
-${products.map(productToXmlItem).join('\n')}
+${products.map(p => buildMetaCatalogXmlItem(p, { galleryUrls: galleryByProduct[p.id] ?? [], indent: '  ' })).join('\n')}
   </channel>
 </rss>`;
 }
 
-function buildCsv(products: Product[]): string {
-  const header = 'id,title,description,availability,condition,price,link,image_link,brand,gender';
-  const rows = products.map(p => {
-    const esc = (s: string) => `"${s.replace(/"/g, '""')}"`;
-    return [
-      esc(p.id),
-      esc(p.title ?? ''),
-      esc(p.description ?? 'Lunettes de soleil Nyvara'),
-      esc((p.stock ?? 0) > 0 ? 'in stock' : 'out of stock'),
-      esc('new'),
-      esc(formatPrice(p.final_price ?? p.price ?? 0)),
-      esc(`${SITE_URL}/shop/${p.id}`),
-      esc(normalizeProductImageUrl(p.image_url)),
-      esc('Nyvara'),
-      esc(p.gender === 'homme' ? 'male' : p.gender === 'femme' ? 'female' : 'unisex'),
-    ].join(',');
-  });
+function buildCsv(products: Product[], galleryByProduct: Record<string, string[]> = {}): string {
+  const header = 'id,title,description,availability,condition,price,sale_price,link,image_link,additional_image_link,brand,google_product_category,gender';
+  const rows = products.map(p => buildMetaCatalogCsvRow(p, galleryByProduct[p.id] ?? []));
   return [header, ...rows].join('\n');
+}
+
+async function fetchGalleryByProduct(productIds: string[]): Promise<Record<string, string[]>> {
+  if (productIds.length === 0) return {};
+
+  const { data, error } = await supabase
+    .from('product_images')
+    .select('product_id, image_url')
+    .in('product_id', productIds)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).reduce<Record<string, string[]>>((acc, row) => {
+    if (!acc[row.product_id]) acc[row.product_id] = [];
+    acc[row.product_id].push(row.image_url);
+    return acc;
+  }, {});
 }
 
 function downloadFile(content: string, filename: string, mime: string) {
@@ -142,13 +116,15 @@ export default function CatalogAdPage() {
     setExported(false);
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (selected.size === 0) return;
     const date = new Date().toISOString().slice(0, 10);
+    const galleryByProduct = await fetchGalleryByProduct(selectedProducts.map(p => p.id));
+
     if (exportFormat === 'xml') {
-      downloadFile(buildXml(selectedProducts), `nyvara-catalog-${date}.xml`, 'application/xml');
+      downloadFile(buildXml(selectedProducts, galleryByProduct), `nyvara-catalog-${date}.xml`, 'application/xml');
     } else {
-      downloadFile(buildCsv(selectedProducts), `nyvara-catalog-${date}.csv`, 'text/csv');
+      downloadFile(buildCsv(selectedProducts, galleryByProduct), `nyvara-catalog-${date}.csv`, 'text/csv');
     }
     setExported(true);
   };

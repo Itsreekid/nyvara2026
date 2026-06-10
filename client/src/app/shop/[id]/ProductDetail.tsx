@@ -57,17 +57,20 @@ export default function ProductDetail({ product, gallery, related }: Props) {
   const inCart     = isInCart(product.id);
   const wishlisted = isWishlisted(product.id);
 
-  // ── Meta Pixel: ViewContent ──────────────────────────────────────────
+  // ── Meta Pixel: ViewContent (once per product page load) ─────────────
+  const viewContentFired = useRef(false);
   useEffect(() => {
+    if (viewContentFired.current) return;
+    viewContentFired.current = true;
+
     fbEvent.viewContent({
-      content_ids:  [product.id],
-      content_name: product.title ?? '',
-      value:        product.final_price ?? product.price ?? undefined,
-      content_type: 'product',
+      content_ids:      [String(product.id)],
+      content_name:     product.title ?? '',
+      value:            product.final_price ?? product.price ?? undefined,
+      content_type:     'product',
       content_category: product.categories?.name ?? undefined,
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product.id]);
+  }, [product.id, product.title, product.final_price, product.price, product.categories?.name]);
 
   const hasDiscount     = product.discount != null && product.discount > 0;
   const discountedPrice = hasDiscount && product.price != null
@@ -161,7 +164,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
       addItem(product, color ?? undefined);
     });
     fbEvent.addToCart({
-      content_ids:  [product.id],
+      content_ids:  [String(product.id)],
       content_name: product.title ?? '',
       value:        (product.final_price ?? product.price ?? 0) * qty,
       content_type: 'product',
@@ -175,7 +178,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
       addItem(product, color ?? undefined);
     });
     fbEvent.addToCart({
-      content_ids:  [product.id],
+      content_ids:  [String(product.id)],
       content_name: product.title ?? '',
       value:        (product.final_price ?? product.price ?? 0) * qty,
       content_type: 'product',
