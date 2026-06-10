@@ -17,6 +17,7 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 ];
 
 export default function SortBar({ total, sort, onSortChange }: SortBarProps) {
+  // netlify build trigger
   return (
     <div className={styles.bar}>
       <p className={styles.count}>
