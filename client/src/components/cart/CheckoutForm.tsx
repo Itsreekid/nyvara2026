@@ -22,6 +22,7 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
   const { items, total, clearCart } = useCart();
   const { createOrder, loading } = useCreateOrder();
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fire InitiateCheckout once when form mounts (user is in checkout)
   useEffect(() => {
@@ -51,8 +52,10 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
     setFormData(prev => ({ ...prev, [name]: val }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (isSubmitting) return;
+  setIsSubmitting(true);
 
     if (!formData.nom || !formData.email || !formData.adresse || !formData.ville || !formData.telephone) {
       setErrorLocal('Veuillez remplir tous les champs obligatoires.');
@@ -75,9 +78,9 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
       })),
     };
 
-    const result = await createOrder(payload);
+  const result = await createOrder(payload);
 
-    if (result) {
+  if (result) {
       const contents = buildPurchaseContents(items);
 
       // Fire Purchase on both client pixel + server CAPI for reliable attribution
@@ -94,10 +97,12 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
         contents,
         num_items:   items.reduce((s, i) => s + i.quantity, 0),
       });
-      clearCart();
-      onSuccess(result.id);
-    } else {
-      setErrorLocal('Erreur lors de la commande. Veuillez réessayer.');
+    clearCart();
+    onSuccess(result.id);
+    setIsSubmitting(false);
+  } else {
+    setErrorLocal('Erreur lors de la commande. Veuillez réessayer.');
+    setIsSubmitting(false);
     }
   };
 
@@ -262,7 +267,7 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
 
       {errorLocal && <p style={{ color: 'var(--color-error)', fontSize: '13px', textAlign: 'center' }}>{errorLocal}</p>}
 
-      <button type="submit" className={styles.submitBtn} disabled={loading || items.length === 0}>
+      <button type="submit" className={styles.submitBtn} disabled={loading || items.length === 0 || isSubmitting}>
         {loading ? (
           <>
             <Loader2 className="animate-spin" size={20} />

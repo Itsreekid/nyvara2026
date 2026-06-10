@@ -47,19 +47,37 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
   const [deviceId, setDeviceId] = useState<string>();
   const [synced, setSynced] = useState(false);
 
-  // Initialize device ID and load wishlist from server
+  // Load persisted wishlist from LocalStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('nyvara_wishlist');
+      if (stored) {
+        const items: Product[] = JSON.parse(stored);
+        dispatch({ type: 'SYNC', items });
+      }
+    } catch (e) {
+      console.error('Failed to read wishlist from LocalStorage', e);
+    }
+  }, []);
+
+  // Persist wishlist to LocalStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('nyvara_wishlist', JSON.stringify(state.items));
+    } catch (e) {
+      console.error('Failed to write wishlist to LocalStorage', e);
+    }
+  }, [state.items]);
+
+  // Initialize device ID and optionally sync with server (kept unchanged)
   useEffect(() => {
     const initializeWishlist = async () => {
       const id = getDeviceId();
       setDeviceId(id);
-
       try {
-        // Fetch wishlist from server
         const response = await fetch(`/api/wishlist?deviceId=${id}`);
         if (response.ok) {
-          const data = await response.json();
-          // Here you would load products based on product_ids
-          // For now, just sync empty to show structure works
+          // Server sync logic could be added here
           setSynced(true);
         }
       } catch (error) {
@@ -67,14 +85,11 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
         setSynced(true);
       }
     };
-
     initializeWishlist();
   }, []);
 
   const addToWishlist = useCallback(async (product: Product) => {
     dispatch({ type: 'ADD_ITEM', product });
-
-    // Persist to server
     if (deviceId) {
       try {
         await fetch('/api/wishlist', {
@@ -94,8 +109,6 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
 
   const removeFromWishlist = useCallback(async (productId: string) => {
     dispatch({ type: 'REMOVE_ITEM', productId });
-
-    // Persist to server
     if (deviceId) {
       try {
         await fetch('/api/wishlist', {

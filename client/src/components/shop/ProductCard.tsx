@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Heart, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useState } from 'react';
 import Badge from '@/components/ui/Badge';
 import type { Product } from '@/types';
 import styles from './ProductCard.module.css';
@@ -26,6 +27,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
 
   const inCart     = isInCart(product.id);
   const wishlisted = isWishlisted(product.id);
+  const [wishlistDisabled, setWishlistDisabled] = useState(false);
 
   // Discount calculation
   const hasDiscount     = product.discount != null && product.discount > 0;
@@ -45,6 +47,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
 
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault(); // prevent navigation
+    if (wishlistDisabled) return;
+    setWishlistDisabled(true);
     if (wishlisted) {
       removeFromWishlist(product.id);
     } else {
@@ -54,6 +58,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         content_name: product.title ?? 'Sunglasses',
       });
     }
+    window.setTimeout(() => setWishlistDisabled(false), 600);
   };
 
   const genderLabel: Record<string, string> = {
@@ -102,6 +107,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
           <button
             className={`${styles.wishlistBtn} ${wishlisted ? styles.wishlisted : ''}`}
             onClick={handleWishlist}
+            disabled={wishlistDisabled}
             aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           >
             <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} />
