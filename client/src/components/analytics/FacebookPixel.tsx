@@ -29,8 +29,8 @@ function PixelPageViewTracker() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-      window.fbq('track', 'PageView');
+    if (typeof window !== 'undefined' && (window as any).fbq) {
+      (window as any).fbq('track', 'PageView');
     }
   }, [pathname, searchParams]);
 
@@ -85,8 +85,8 @@ export function generateEventId(): string {
 }
 
 function fireClient(event: string, params?: Record<string, unknown>, eventId?: string) {
-  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-    window.fbq('track', event, { currency: 'TND', ...params }, eventId ? { eventID: eventId } : undefined);
+  if (typeof window !== 'undefined' && (window as any).fbq) {
+    (window as any).fbq('track', event, { currency: 'TND', ...params }, { eventID: eventId });
   }
 }
 
