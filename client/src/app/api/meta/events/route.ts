@@ -4,6 +4,7 @@ import crypto from 'crypto';
 const PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID!;
 const ACCESS_TOKEN = process.env.FB_CONVERSIONS_API_TOKEN!;
 const API_VERSION = 'v19.0';
+const TEST_CODE = process.env.META_TEST_EVENT_CODE;
 
 /** SHA-256 hash a value for PII (required by Meta) */
 function hash(value: string): string {
@@ -37,20 +38,20 @@ export async function POST(req: NextRequest) {
       client_ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '',
       client_user_agent: req.headers.get('user-agent') ?? '',
     };
-    
-    if (email)      userData.em = hash(email);
-    if (phone)      userData.ph = hash(phone.replace(/\D/g, '')); // digits only
+
+    if (email) userData.em = hash(email);
+    if (phone) userData.ph = hash(phone.replace(/\D/g, '')); // digits only
     if (first_name) userData.fn = hash(first_name);
-    if (last_name)  userData.ln = hash(last_name);
-    if (city)       userData.ct = hash(city);
-    if (country)    userData.country = hash(country);
+    if (last_name) userData.ln = hash(last_name);
+    if (city) userData.ct = hash(city);
+    if (country) userData.country = hash(country);
 
     const normalizedContents = Array.isArray(contents)
       ? contents.map((item: { id?: string; quantity?: number; item_price?: number }) => ({
-          id:         String(item.id ?? ''),
-          quantity:   Number(item.quantity ?? 1),
-          item_price: Number(item.item_price ?? 0),
-        }))
+        id: String(item.id ?? ''),
+        quantity: Number(item.quantity ?? 1),
+        item_price: Number(item.item_price ?? 0),
+      }))
       : [];
 
     const customData: Record<string, any> = {};
@@ -69,15 +70,13 @@ export async function POST(req: NextRequest) {
           event_name: event_name,
           event_time: Math.floor(Date.now() / 1000),
           event_id,          // deduplication key
-          event_source_url:  event_source_url || (req.headers.get('referer') ?? 'https://nyvara.net'),
-          action_source:     'website',
-          user_data:         userData,
-          custom_data:       customData,
+          event_source_url: event_source_url || (req.headers.get('referer') ?? 'https://nyvara.net'),
+          action_source: 'website',
+          user_data: userData,
+          custom_data: customData,
         },
       ],
-      ...(process.env.META_TEST_EVENT_CODE
-        ? { test_event_code: process.env.META_TEST_EVENT_CODE }
-        : {}),
+      test_event_code: TEST_CODE,
     };
 
     const fbRes = await fetch(
@@ -90,6 +89,7 @@ export async function POST(req: NextRequest) {
     );
 
     const fbData = await fbRes.json();
+    console.log('[Meta CAPI] Response:', fbData);
 
     if (!fbRes.ok) {
       console.error('[Meta CAPI] Error:', fbData);
