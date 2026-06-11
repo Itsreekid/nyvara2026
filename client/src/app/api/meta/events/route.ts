@@ -14,7 +14,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      event_id,        // Must match the client-side pixel event_id
+      event_name,      // Required: The standard event name
+      event_id,        // Required: Must match the client-side pixel event_id
+      event_source_url,
       order_id,
       value,
       email,
@@ -26,13 +28,16 @@ export async function POST(req: NextRequest) {
       content_ids,    // array of product IDs
       contents,
       num_items,
+      currency = 'TND',
+      content_category,
     } = body;
 
-    // Build user data — hash all PII
+    // Build user data — hash all PII, send IP and UA raw
     const userData: Record<string, string | string[]> = {
       client_ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '',
       client_user_agent: req.headers.get('user-agent') ?? '',
     };
+    
     if (email)      userData.em = hash(email);
     if (phone)      userData.ph = hash(phone.replace(/\D/g, '')); // digits only
     if (first_name) userData.fn = hash(first_name);
@@ -48,24 +53,26 @@ export async function POST(req: NextRequest) {
         }))
       : [];
 
+    const customData: Record<string, any> = {};
+    if (value !== undefined) customData.value = value;
+    if (currency) customData.currency = currency;
+    if (order_id) customData.order_id = order_id;
+    if (content_ids && content_ids.length > 0) customData.content_ids = content_ids;
+    if (normalizedContents.length > 0) customData.contents = normalizedContents;
+    if (num_items !== undefined) customData.num_items = num_items;
+    customData.content_type = 'product';
+    if (content_category) customData.content_category = content_category;
+
     const payload = {
       data: [
         {
-          event_name: 'Purchase',
+          event_name: event_name,
           event_time: Math.floor(Date.now() / 1000),
           event_id,          // deduplication key
-          event_source_url:  req.headers.get('referer') ?? 'https://nyvara.net',
+          event_source_url:  event_source_url || (req.headers.get('referer') ?? 'https://nyvara.net'),
           action_source:     'website',
           user_data:         userData,
-          custom_data: {
-            currency:     'TND',
-            value:        value,
-            order_id,
-            content_ids,
-            contents:     normalizedContents,
-            num_items,
-            content_type: 'product',
-          },
+          custom_data:       customData,
         },
       ],
       ...(process.env.META_TEST_EVENT_CODE

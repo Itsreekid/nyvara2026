@@ -84,32 +84,56 @@ export function generateEventId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function fire(event: string, params?: Record<string, unknown>, eventId?: string) {
+function fireClient(event: string, params?: Record<string, unknown>, eventId?: string) {
   if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
     window.fbq('track', event, { currency: 'TND', ...params }, eventId ? { eventID: eventId } : undefined);
   }
+}
+
+async function fireServer(eventName: string, params: Record<string, unknown>, eventId: string) {
+  if (typeof window === 'undefined') return;
+  try {
+    await fetch('/api/meta/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...params,
+        event_name: eventName,
+        event_id: eventId,
+        event_source_url: window.location.href,
+      }),
+    });
+  } catch (err) {
+    console.error(`[Meta CAPI] ${eventName} server event failed:`, err);
+  }
+}
+
+function fireBoth(eventName: string, params: Record<string, unknown>) {
+  const eventId = generateEventId();
+  fireClient(eventName, params, eventId);
+  fireServer(eventName, params, eventId);
 }
 
 /** Client-side event helpers — use these throughout the app */
 export const fbEvent = {
   /** Fire when user views a product */
   viewContent: (params: { content_ids: string[]; content_name: string; value?: number; content_type?: string; content_category?: string }) => {
-    fire('ViewContent', { content_type: 'product', ...params, value: Number(params.value ?? 0) });
+    fireBoth('ViewContent', { content_type: 'product', ...params, value: Number(params.value ?? 0) });
   },
 
   /** Fire when user adds to cart */
   addToCart: (params: { content_ids: string[]; content_name: string; value: number; content_type?: string }) => {
-    fire('AddToCart', { content_type: 'product', ...params, value: Number(params.value) });
+    fireBoth('AddToCart', { content_type: 'product', ...params, value: Number(params.value) });
   },
 
   /** Fire when user opens checkout */
   initiateCheckout: (params: { value: number; num_items: number }) => {
-    fire('InitiateCheckout', { ...params, value: Number(params.value) });
+    fireBoth('InitiateCheckout', { ...params, value: Number(params.value) });
   },
 
   /** Fire when user adds to wishlist */
   addToWishlist: (params: { content_ids: string[]; content_name: string }) => {
-    fire('AddToWishlist', params);
+    fireBoth('AddToWishlist', { ...params });
   },
 };
 
@@ -137,27 +161,33 @@ export interface PurchaseParams {
 export async function trackPurchase(params: PurchaseParams): Promise<void> {
   const eventId = generateEventId();
 
-  // 1. Client-side pixel (immediate, user browser)
-  fire(
-    'Purchase',
-    {
-      value:        Number(params.value),
-      content_ids:  params.content_ids,
-      contents:     params.contents,
-      num_items:    params.num_items,
-      content_type: 'product',
-    },
-    eventId
-  );
+  const eventParams = {
+    value:        Number(params.value),
+    content_ids:  params.content_ids,
+    contents:     params.contents,
+    num_items:    params.num_items,
+    content_type: 'product',
+  };
 
-  // 2. Server-side Conversions API (reliable, not blocked by ad blockers / iOS)
-  try {
-    await fetch('/api/meta/purchase', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...params, event_id: eventId }),
-    });
-  } catch (err) {
-    console.error('[Meta CAPI] Purchase server event failed:', err);
+  // 1. Client-side pixel (immediate, user browser)
+  fireClient('Purchase', eventParams, eventId);
+
+  // 2. Server-side Conversions API
+  if (typeof window !== 'undefined') {
+    try {
+      await fetch('/api/meta/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...params,
+          ...eventParams,
+          event_name: 'Purchase',
+          event_id: eventId,
+          event_source_url: window.location.href,
+        }),
+      });
+    } catch (err) {
+      console.error('[Meta CAPI] Purchase server event failed:', err);
+    }
   }
 }
