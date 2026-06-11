@@ -49,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Preconnect to external origins */}
         <link rel="preconnect" href="https://vkrgfqjsixjsieqzykcx.supabase.co" />
         <link rel="dns-prefetch" href="https://connect.facebook.net" />
+        <FacebookPixel />
       </head>
       <body>
         <CartProvider>
@@ -60,7 +61,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Footer />
           </WishlistProvider>
         </CartProvider>
-        <FacebookPixel />
       </body>
     </html>
   );

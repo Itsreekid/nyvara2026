@@ -4,6 +4,16 @@ import Script from 'next/script';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, Suspense } from 'react';
 
+/**
+ * Meta Pixel ID — sourced from NEXT_PUBLIC_FB_PIXEL_ID environment variable.
+ * Next.js inlines NEXT_PUBLIC_* vars at build time.
+ *
+ * - Local dev: set in .env.local
+ * - Production (Netlify): set in Netlify Dashboard → Site Settings → Environment Variables
+ *
+ * To change the Pixel ID, update it in ONE place:
+ *   → .env.local (for local)  OR  Netlify Dashboard (for production)
+ */
 const PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID;
 
 declare global {
@@ -19,7 +29,7 @@ function PixelPageViewTracker() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (typeof window.fbq === 'function') {
+    if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
       window.fbq('track', 'PageView');
     }
   }, [pathname, searchParams]);
@@ -32,8 +42,8 @@ export default function FacebookPixel() {
 
   return (
     <>
-      {/* Base Pixel Code - deferred to improve LCP */}
-      <Script id="fb-pixel" strategy="lazyOnload">
+      {/* Meta Pixel Base Code — afterInteractive ensures it loads before user events */}
+      <Script id="fb-pixel" strategy="afterInteractive">
         {`
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
@@ -48,7 +58,18 @@ export default function FacebookPixel() {
         `}
       </Script>
 
-      {/* Route change tracker */}
+      {/* noscript fallback for users with JS disabled */}
+      <noscript>
+        <img
+          height="1"
+          width="1"
+          style={{ display: 'none' }}
+          src={`https://www.facebook.com/tr?id=${PIXEL_ID}&ev=PageView&noscript=1`}
+          alt=""
+        />
+      </noscript>
+
+      {/* Route change tracker for SPA navigations */}
       <Suspense fallback={null}>
         <PixelPageViewTracker />
       </Suspense>
@@ -73,17 +94,17 @@ function fire(event: string, params?: Record<string, unknown>, eventId?: string)
 export const fbEvent = {
   /** Fire when user views a product */
   viewContent: (params: { content_ids: string[]; content_name: string; value?: number; content_type?: string; content_category?: string }) => {
-    fire('ViewContent', { content_type: 'product', ...params });
+    fire('ViewContent', { content_type: 'product', ...params, value: Number(params.value ?? 0) });
   },
 
   /** Fire when user adds to cart */
   addToCart: (params: { content_ids: string[]; content_name: string; value: number; content_type?: string }) => {
-    fire('AddToCart', { content_type: 'product', ...params });
+    fire('AddToCart', { content_type: 'product', ...params, value: Number(params.value) });
   },
 
   /** Fire when user opens checkout */
   initiateCheckout: (params: { value: number; num_items: number }) => {
-    fire('InitiateCheckout', params);
+    fire('InitiateCheckout', { ...params, value: Number(params.value) });
   },
 
   /** Fire when user adds to wishlist */
@@ -120,7 +141,7 @@ export async function trackPurchase(params: PurchaseParams): Promise<void> {
   fire(
     'Purchase',
     {
-      value:        params.value,
+      value:        Number(params.value),
       content_ids:  params.content_ids,
       contents:     params.contents,
       num_items:    params.num_items,

@@ -66,7 +66,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
     fbEvent.viewContent({
       content_ids:      [String(product.id)],
       content_name:     product.title ?? '',
-      value:            product.final_price ?? product.price ?? undefined,
+      value:            Number(product.final_price ?? product.price ?? 0),
       content_type:     'product',
       content_category: product.categories?.name ?? undefined,
     });
@@ -166,7 +166,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
       content_name: product.title ?? '',
-      value:        (product.final_price ?? product.price ?? 0) * qty,
+      value:        Number((product.final_price ?? product.price ?? 0) * qty),
       content_type: 'product',
     });
     setQty(1);

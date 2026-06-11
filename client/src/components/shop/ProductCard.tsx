@@ -41,7 +41,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
       content_name: product.title ?? 'Sunglasses',
-      value:        product.final_price ?? product.price ?? 0,
+      value:        Number(product.final_price ?? product.price ?? 0),
     });
   };
 
