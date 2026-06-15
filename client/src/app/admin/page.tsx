@@ -6,6 +6,17 @@ import type { Order } from '@/types';
 import adminStyles from './admin.module.css';
 import styles from './dashboard.module.css';
 
+const safeDateParse = (d: string | null | undefined): Date => {
+  if (!d) return new Date(NaN);
+  return new Date(d.replace(' ', 'T'));
+};
+
+const safeFormatDate = (d: string | null | undefined): string => {
+  const date = safeDateParse(d);
+  if (isNaN(date.getTime())) return 'Date invalide';
+  return date.toLocaleDateString('fr-FR');
+};
+
 const DELIVERED_STATUSES = ['delivered'];
 const RETURNED_STATUSES  = ['final-return', 'received-return', 'return-stock'];
 const TARIF_LIVRE        = 8;
@@ -58,7 +69,7 @@ export default function AdminDashboardPage() {
   // ── Metrics ──────────────────────────────────────────────────────────────
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const ordersToday  = orders.filter(o => new Date(o.created_at || '').getTime() >= today.getTime());
+  const ordersToday  = orders.filter(o => safeDateParse(o.created_at).getTime() >= today.getTime());
   const revenueToday = ordersToday.reduce((s, o) => s + (o.total_price ?? 0), 0);
 
   const deliveredOrders = orders.filter(o => DELIVERED_STATUSES.includes(o.cosmos_status ?? ''));
@@ -241,7 +252,7 @@ export default function AdminDashboardPage() {
                 <tr key={order.id}>
                   <td>#{order.id.slice(0, 8)}</td>
                   <td>{order.customer_name}</td>
-                  <td>{new Date(order.created_at || '').toLocaleDateString('fr-FR')}</td>
+                  <td>{safeFormatDate(order.created_at)}</td>
                   <td>{order.total_price?.toFixed(3)} TND</td>
                   <td>
                     <span className={`${adminStyles.statusBadge} ${adminStyles.statusPending}`}>

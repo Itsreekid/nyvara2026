@@ -101,8 +101,8 @@ export function buildMetaCatalogXmlItem(
   const { regularPrice, salePrice, onSale } = getProductPricing(product);
   const title = escXml(product.title ?? 'Nyvara Sunglasses');
   const description = escXml(product.description ?? 'Lunettes de soleil de luxe — Nyvara Tunisia');
-  const link = `https://nyvara.net/shop/${product.id}`;
-  const imageLink = normalizeProductImageUrl(product.image_url);
+  const link = escXml(`https://nyvara.net/shop/${product.id}`);
+  const imageLink = escXml(normalizeProductImageUrl(product.image_url));
   const availability = (product.stock ?? 0) > 0 ? 'in stock' : 'out of stock';
   const brand = escXml(product.brand ?? DEFAULT_BRAND);
   const googleCategory = escXml(product.google_product_category ?? DEFAULT_GOOGLE_PRODUCT_CATEGORY);
@@ -111,23 +111,18 @@ export function buildMetaCatalogXmlItem(
     : product.categories?.name;
   const productType = escXml(categoryName ?? 'sunglasses');
   const gender = mapGender(product.gender);
-  const additionalImages = collectAdditionalImageUrls(product, options?.galleryUrls ?? []);
 
   const priceBlock = onSale
     ? `<g:price>${formatMetaPrice(regularPrice)}</g:price>
 ${indent}  <g:sale_price>${formatMetaPrice(salePrice)}</g:sale_price>`
     : `<g:price>${formatMetaPrice(salePrice)}</g:price>`;
 
-  const additionalImageBlock = additionalImages
-    .map(url => `${indent}  <g:additional_image_link>${url}</g:additional_image_link>`)
-    .join('\n');
-
   return `${indent}<item>
 ${indent}  <g:id>${product.id}</g:id>
 ${indent}  <g:title>${title}</g:title>
 ${indent}  <g:description>${description}</g:description>
 ${indent}  <g:link>${link}</g:link>
-${indent}  <g:image_link>${imageLink}</g:image_link>${additionalImageBlock ? `\n${additionalImageBlock}` : ''}
+${indent}  <g:image_link>${imageLink}</g:image_link>
 ${indent}  <g:availability>${availability}</g:availability>
 ${indent}  ${priceBlock}
 ${indent}  <g:brand>${brand}</g:brand>

@@ -10,38 +10,30 @@ const supabase = createClient(
 
 const SITE_URL = 'https://nyvara.net';
 
-type GalleryRow = { product_id: string; image_url: string };
-
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const [{ data: products, error }, { data: galleryRows, error: galleryError }] = await Promise.all([
-    supabase
-      .from('products')
-      .select('id, title, description, price, final_price, discount, stock, image_url, gender, badge, brand, google_product_category, color_options, categories(name)')
-      .order('created_at', { ascending: false }),
-    supabase
-      .from('product_images')
-      .select('product_id, image_url')
-      .order('sort_order', { ascending: true }),
-  ]);
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('id, title, description, price, final_price, discount, stock, image_url, gender, badge, brand, google_product_category, color_options, categories(name)')
+    .order('created_at', { ascending: false });
 
-  if (error || galleryError) {
-    console.error('[Meta Feed] Supabase error:', error?.message ?? galleryError?.message);
+  if (error) {
+    console.error('[Meta Feed] Supabase error:', error.message);
     return new NextResponse('Internal Server Error', { status: 500 });
   }
 
-  const galleryByProduct = (galleryRows ?? []).reduce<Record<string, string[]>>((acc, row: GalleryRow) => {
-    if (!acc[row.product_id]) acc[row.product_id] = [];
-    acc[row.product_id].push(row.image_url);
-    return acc;
-  }, {});
+  // Filter products to exclude those without a primary image or without a valid price
+  const validProducts = (products ?? []).filter(product => {
+    const hasImage = !!product.image_url;
+    const price = product.price ?? product.final_price ?? 0;
+    const hasPrice = price > 0;
+    return hasImage && hasPrice;
+  });
 
-  const items = (products ?? [])
+  const items = validProducts
     .map(product =>
-      buildMetaCatalogXmlItem(product as MetaCatalogProduct, {
-        galleryUrls: galleryByProduct[product.id] ?? [],
-      })
+      buildMetaCatalogXmlItem(product as MetaCatalogProduct)
     )
     .join('\n');
 

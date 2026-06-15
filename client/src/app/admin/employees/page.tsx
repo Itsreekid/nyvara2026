@@ -20,6 +20,13 @@ interface AdminUser {
 
 const EMPTY_FORM = { username: '', full_name: '', password: '', role: 'employee' as 'admin' | 'employee' };
 
+const safeFormatDate = (d: string | null | undefined): string => {
+  if (!d) return 'Date invalide';
+  const date = new Date(d.replace(' ', 'T'));
+  if (isNaN(date.getTime())) return 'Date invalide';
+  return date.toLocaleDateString('fr-FR');
+};
+
 export default function EmployeesPage() {
   const [users, setUsers]     = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -112,7 +119,7 @@ export default function EmployeesPage() {
                       {user.role === 'admin' ? 'Admin' : 'Employé'}
                     </span>
                   </td>
-                  <td>{new Date(user.created_at).toLocaleDateString('fr-FR')}</td>
+                  <td>{safeFormatDate(user.created_at)}</td>
                   <td>
                     <button
                       className={styles.deleteBtn}
