@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { getFacebookCookies } from '@/lib/facebook-capi';
 
 const PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID!;
 const ACCESS_TOKEN = process.env.FB_CONVERSIONS_API_TOKEN!;
@@ -34,10 +35,14 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Build user data — hash all PII, send IP and UA raw
-    const userData: Record<string, string | string[]> = {
+    const userData: Record<string, string | string[] | undefined> = {
       client_ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '',
       client_user_agent: req.headers.get('user-agent') ?? '',
     };
+
+    const { fbc, fbp } = getFacebookCookies(req, event_source_url);
+    if (fbc) userData.fbc = fbc;
+    if (fbp) userData.fbp = fbp;
 
     if (email) userData.em = hash(email);
     if (phone) userData.ph = hash(phone.replace(/\D/g, '')); // digits only

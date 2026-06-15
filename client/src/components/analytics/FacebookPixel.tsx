@@ -96,6 +96,7 @@ async function fireServer(eventName: string, params: Record<string, unknown>, ev
     await fetch('/api/meta/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({
         ...params,
         event_name: eventName,
@@ -178,6 +179,7 @@ export async function trackPurchase(params: PurchaseParams): Promise<void> {
       await fetch('/api/meta/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           ...params,
           ...eventParams,
