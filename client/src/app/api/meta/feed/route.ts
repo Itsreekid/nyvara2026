@@ -46,7 +46,7 @@ export async function GET() {
 
   const items = validProducts
     .map(product =>
-      buildMetaCatalogXmlItem(product as MetaCatalogProduct)
+      buildMetaCatalogXmlItem(product as unknown as MetaCatalogProduct)
     )
     .join('\n');
 
