@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+# Explicitly allow Meta/Facebook crawler
+User-agent: facebookexternalhit
+Allow: /
+
+# Allow Meta catalog crawler
+User-agent: Facebot
+Allow: /
+
+# Disallow admin area from all crawlers
+User-agent: *
+Disallow: /admin/
+
+Sitemap: https://nyvara.net/sitemap.xml
