@@ -3,24 +3,34 @@ import { createClient } from '@supabase/supabase-js';
 import { buildMetaCatalogXmlItem } from '@/lib/meta-catalog';
 import type { MetaCatalogProduct } from '@/lib/meta-catalog';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 const SITE_URL = 'https://nyvara.net';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  // Validate env vars at request time so missing vars produce a clear log
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error(
+      '[Meta Feed] Missing env vars:',
+      !supabaseUrl ? 'NEXT_PUBLIC_SUPABASE_URL' : '',
+      !supabaseServiceKey ? 'SUPABASE_SERVICE_ROLE_KEY' : ''
+    );
+    return new NextResponse('Server misconfiguration: missing environment variables', { status: 500 });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
   const { data: products, error } = await supabase
     .from('products')
     .select('id, title, description, price, final_price, discount, stock, image_url, gender, badge, brand, google_product_category, color_options, categories(name)')
     .order('created_at', { ascending: false });
 
   if (error) {
-    console.error('[Meta Feed] Supabase error:', error.message);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    console.error('[Meta Feed] Supabase query error:', error.message, error.code);
+    return new NextResponse(`Supabase error: ${error.message}`, { status: 500 });
   }
 
   // Filter products to exclude those without a primary image or without a valid price
@@ -30,6 +40,8 @@ export async function GET() {
     const hasPrice = price > 0;
     return hasImage && hasPrice;
   });
+
+  console.log(`[Meta Feed] Serving ${validProducts.length} products (${(products ?? []).length} total)`);
 
   const items = validProducts
     .map(product =>
