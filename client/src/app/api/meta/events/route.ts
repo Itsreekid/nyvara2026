@@ -35,6 +35,21 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // Build user data — hash all PII, send IP and UA raw
+    const headersObj: Record<string, string> = {};
+    req.headers.forEach((value, key) => {
+      const lowerKey = key.toLowerCase();
+      if (
+        lowerKey.includes('ip') ||
+        lowerKey.includes('forward') ||
+        lowerKey.includes('client') ||
+        lowerKey.includes('cf') ||
+        lowerKey.includes('real')
+      ) {
+        headersObj[key] = value;
+      }
+    });
+    console.log('[Meta CAPI DEBUG] IP Headers:', JSON.stringify(headersObj, null, 2));
+
     const userData: Record<string, string | string[] | undefined> = {
       client_ip_address: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '',
       client_user_agent: req.headers.get('user-agent') ?? '',
