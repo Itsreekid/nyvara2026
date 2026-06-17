@@ -304,3 +304,36 @@
 .totalsRow.grandTotal td {
   font-size: 16px;
 }
+
+/* Quantity Input */
+.qtyInput {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  padding: 6px;
+  border-radius: 4px;
+  width: 60px;
+  text-align: center;
+  outline: none;
+}
+.qtyInput:focus {
+  border-color: #6c4eab;
+}
+
+/* Delete Button */
+.deleteBtn {
+  background: transparent;
+  border: none;
+  color: #ff4a4a;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+.deleteBtn:hover {
+  background: rgba(255, 74, 74, 0.1);
+  color: #ff3333;
+}

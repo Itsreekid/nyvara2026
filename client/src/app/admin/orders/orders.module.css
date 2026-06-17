@@ -447,3 +447,31 @@
 .clearSearchBtn:hover {
   color: #57534e; /* text-stone-600 */
 }
+
+/* -- Action Buttons Group -- */
+.actionBtns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* -- Deliver Action Button -- */
+.deliverBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--color-gold);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.deliverBtn:hover {
+  background: #32dc64;
+  border-color: #32dc64;
+  color: #000;
+  transform: translateY(-1px);
+}

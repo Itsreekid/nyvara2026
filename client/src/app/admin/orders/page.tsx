@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import { ShoppingBag, Archive, ArchiveRestore, CheckSquare, Eye } from 'lucide-react';
+import { ShoppingBag, Archive, ArchiveRestore, CheckSquare, Eye, Truck } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import OrderDetailsDrawer from '@/components/admin/OrderDetailsDrawer';
 import StatusDropdown from '@/components/admin/StatusDropdown';
@@ -28,10 +28,11 @@ const DELIVERY_STATUS: Record<string, { label: string; cls: string }> = {
 
 export interface OrderItem {
   id: string;
+  product_id: string;
   quantity: number;
   quantity_break_price: number | null;
   selected_color_name: string | null;
-  products: { title: string; price: number | null; discount: number | null; image_url: string | null; color_options: ColorOption[] | null } | null;
+  products: { id: string; title: string; price: number | null; discount: number | null; image_url: string | null; color_options: ColorOption[] | null; quantity_breaks: any[] | null } | null;
 }
 
 export interface OrderWithItems extends Order {
@@ -119,13 +120,6 @@ export default function AdminOrdersPage() {
     setOrders(prev =>
       prev.map(o => o.id === orderId ? { ...o, call_status: newStatus } : o)
     );
-    
-    if (newStatus === 'confirmed') {
-      const order = ordersRef.current.find(o => o.id === orderId) || orders.find(o => o.id === orderId);
-      if (order && !order.cosmos_barcode) {
-        confirmOrderAndDispatch({ ...order, call_status: newStatus });
-      }
-    }
   };
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -135,7 +129,7 @@ export default function AdminOrdersPage() {
 
     let queryBuilder = supabase
       .from('orders')
-      .select('*, order_items(id, quantity, selected_color_name, quantity_break_price, products(title, price, discount, image_url, color_options))', { count: 'exact' })
+      .select('*, order_items(id, product_id, quantity, selected_color_name, quantity_break_price, products(id, title, price, discount, image_url, color_options, quantity_breaks))', { count: 'exact' })
       .eq('archived', viewArchived);
 
     if (searchQuery.trim()) {
@@ -329,7 +323,7 @@ export default function AdminOrdersPage() {
                 <th>Produits</th>
                 <th>Total</th>
                 {!viewArchived && <th>Étiquette</th>}
-                <th style={{ width: '50px' }}></th>
+                <th style={{ width: '90px' }}></th>
               </tr>
             </thead>
             <tbody>
@@ -381,13 +375,24 @@ export default function AdminOrdersPage() {
                       </td>
                     )}
                     <td>
-                      <button 
-                        className={styles.eyeBtn} 
-                        onClick={() => setSelectedOrder(order)}
-                        title="Voir les détails"
-                      >
-                        <Eye size={18} />
-                      </button>
+                      <div className={styles.actionBtns}>
+                        {!order.cosmos_barcode && (
+                          <button
+                            className={styles.deliverBtn}
+                            onClick={() => confirmOrderAndDispatch(order)}
+                            title="Envoyer à Cosmos"
+                          >
+                            <Truck size={18} />
+                          </button>
+                        )}
+                        <button 
+                          className={styles.eyeBtn} 
+                          onClick={() => setSelectedOrder(order)}
+                          title="Voir les détails"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );

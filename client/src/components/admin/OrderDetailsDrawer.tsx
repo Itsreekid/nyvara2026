@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import Image from 'next/image';
-import { X, Edit } from 'lucide-react';
+import { X, Edit, Trash2 } from 'lucide-react';
 import styles from './OrderDetailsDrawer.module.css';
 import type { ColorOption } from '@/types';
 import type { OrderWithItems } from '@/app/admin/orders/page';
@@ -23,12 +23,51 @@ const CITIES = [
   'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine', 'Tozeur', 'Tunis', 'Zaghouan'
 ];
 
+const recalculateItemPrices = (items: any[]) => {
+  // 1. Group quantities by product_id
+  const productTotals: Record<string, number> = {};
+  items.forEach(item => {
+    const prodId = item.products?.id || item.product_id;
+    if (prodId) {
+      productTotals[prodId] = (productTotals[prodId] || 0) + item.quantity;
+    }
+  });
+
+  // 2. Re-evaluate unit price for each item
+  return items.map(item => {
+    const prod = item.products;
+    if (!prod) return item;
+
+    const prodId = prod.id || item.product_id;
+    const totalQty = productTotals[prodId] || item.quantity;
+    const breaks = (prod.quantity_breaks || []) as any[];
+    const applicableBreak = [...breaks]
+      .sort((a, b) => b.min_qty - a.min_qty)
+      .find(qb => totalQty >= qb.min_qty);
+
+    let newUnitPrice = item.quantity_break_price;
+    if (applicableBreak) {
+      newUnitPrice = applicableBreak.total_price / totalQty;
+    } else {
+      const hasDiscount = prod.discount != null && prod.discount > 0;
+      const finalPrice = hasDiscount ? Math.round((prod.price ?? 0) * (1 - prod.discount / 100)) : (prod.price ?? 0);
+      newUnitPrice = finalPrice;
+    }
+
+    return {
+      ...item,
+      quantity_break_price: newUnitPrice
+    };
+  });
+};
+
 export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusChange, onOrderUpdated }: DrawerProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving] = React.useState(false);
   const [formData, setFormData] = React.useState({
     customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: ''
   });
+  const [editableItems, setEditableItems] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     if (order) {
@@ -40,6 +79,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
         customer_email: order.customer_email || '',
         private_note: order.private_note || ''
       });
+      setEditableItems(order.order_items ? JSON.parse(JSON.stringify(order.order_items)) : []);
       setIsEditing(false);
     }
   }, [order]);
@@ -57,22 +97,30 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
     };
   }, [isOpen]);
 
-  const handleSave = async () => {
-    if (!order) return;
-    setIsSaving(true);
-    const { error } = await supabase.from('orders').update(formData).eq('id', order.id);
-    setIsSaving(false);
-    if (!error) {
-      setIsEditing(false);
-      onOrderUpdated?.();
-    } else {
-      alert('Error updating order: ' + error.message);
+  const handleUpdateQty = (itemId: string, newQty: number) => {
+    if (newQty < 1) return;
+    setEditableItems(prev => {
+      const updated = prev.map(item => 
+        item.id === itemId ? { ...item, quantity: newQty } : item
+      );
+      return recalculateItemPrices(updated);
+    });
+  };
+
+  const handleDeleteItem = (itemId: string) => {
+    if (editableItems.length <= 1) {
+      alert("Une commande doit contenir au moins un produit.");
+      return;
+    }
+    if (confirm("Voulez-vous supprimer ce produit de la commande ?")) {
+      setEditableItems(prev => {
+        const updated = prev.filter(item => item.id !== itemId);
+        return recalculateItemPrices(updated);
+      });
     }
   };
 
-  if (!order) return null;
-
-  const items = order.order_items ?? [];
+  const items = isEditing ? editableItems : (order.order_items ?? []);
   const itemsTotal = items.reduce((s: number, i: any) => {
     const p = i.products;
     const unitPrice = i.quantity_break_price ?? (p?.discount != null && p.discount > 0
@@ -83,7 +131,58 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
 
   const deliveryPrice = 0; // Hardcoded or fetch from order if available
   const subTotal = itemsTotal;
-  const grandTotal = order.total_price ?? (subTotal + deliveryPrice);
+  const grandTotal = isEditing ? (subTotal + deliveryPrice) : (order.total_price ?? (subTotal + deliveryPrice));
+
+  const handleSave = async () => {
+    if (!order) return;
+    setIsSaving(true);
+    try {
+      // 1. Find deleted items
+      const originalItemIds = order.order_items?.map((i: any) => i.id) || [];
+      const currentItemIds = editableItems.map((i: any) => i.id);
+      const deletedItemIds = originalItemIds.filter((id: string) => !currentItemIds.includes(id));
+      
+      // A. Delete removed items from supabase
+      if (deletedItemIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('order_items')
+          .delete()
+          .in('id', deletedItemIds);
+        if (deleteError) throw deleteError;
+      }
+      
+      // B. Update remaining items
+      for (const item of editableItems) {
+        const { error: updateItemError } = await supabase
+          .from('order_items')
+          .update({
+            quantity: item.quantity,
+            quantity_break_price: item.quantity_break_price
+          })
+          .eq('id', item.id);
+        if (updateItemError) throw updateItemError;
+      }
+      
+      // C. Update order details & total_price
+      const { error: orderError } = await supabase
+        .from('orders')
+        .update({
+          ...formData,
+          total_price: grandTotal
+        })
+        .eq('id', order.id);
+      if (orderError) throw orderError;
+      
+      setIsEditing(false);
+      onOrderUpdated?.();
+    } catch (err: any) {
+      alert('Error saving order changes: ' + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!order) return null;
 
   return (
     <>
@@ -229,6 +328,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                   <th>Quantity</th>
                   <th>Unit Price</th>
                   <th>Total</th>
+                  {isEditing && <th>Action</th>}
                 </tr>
               </thead>
               <tbody>
@@ -258,25 +358,48 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                         <span>{item.products?.title ?? 'Unknown'}</span>
                       </td>
                       <td>{item.selected_color_name || '—'}</td>
-                      <td>{item.quantity}</td>
-                      <td>{unitPrice.toFixed(2)}TND</td>
-                      <td>{(unitPrice * item.quantity).toFixed(2)}TND</td>
+                      <td>
+                        {isEditing ? (
+                          <input 
+                            type="number" 
+                            min="1" 
+                            value={item.quantity} 
+                            onChange={(e) => handleUpdateQty(item.id, parseInt(e.target.value) || 1)} 
+                            className={styles.qtyInput} 
+                          />
+                        ) : (
+                          item.quantity
+                        )}
+                      </td>
+                      <td>{unitPrice.toFixed(2)} TND</td>
+                      <td>{(unitPrice * item.quantity).toFixed(2)} TND</td>
+                      {isEditing && (
+                        <td>
+                          <button 
+                            className={styles.deleteBtn}
+                            onClick={() => handleDeleteItem(item.id)}
+                            title="Remove product"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
                 
                 {/* Totals */}
                 <tr className={styles.totalsRow}>
-                  <td colSpan={4}>Sub-total</td>
-                  <td>{subTotal.toFixed(2)}TND</td>
+                  <td colSpan={isEditing ? 5 : 4}>Sub-total</td>
+                  <td>{subTotal.toFixed(2)} TND</td>
                 </tr>
                 <tr className={styles.totalsRow}>
-                  <td colSpan={4}>Delivery Price</td>
-                  <td>{deliveryPrice.toFixed(2)}TND</td>
+                  <td colSpan={isEditing ? 5 : 4}>Delivery Price</td>
+                  <td>{deliveryPrice.toFixed(2)} TND</td>
                 </tr>
                 <tr className={`${styles.totalsRow} ${styles.grandTotal}`}>
-                  <td colSpan={4}>Total</td>
-                  <td>{grandTotal.toFixed(2)}TND</td>
+                  <td colSpan={isEditing ? 5 : 4}>Total</td>
+                  <td>{grandTotal.toFixed(2)} TND</td>
                 </tr>
               </tbody>
             </table>
