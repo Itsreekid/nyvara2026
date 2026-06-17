@@ -4,15 +4,15 @@ import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { X, Edit, Trash2 } from 'lucide-react';
 import styles from './OrderDetailsDrawer.module.css';
-import type { ColorOption } from '@/types';
-import type { OrderWithItems } from '@/app/admin/orders/page';
+import type { ColorOption, QuantityBreak } from '@/types';
+import type { OrderWithItems, OrderItem } from '@/app/admin/orders/page';
 import StatusDropdown from './StatusDropdown';
 import { supabase } from '@/lib/supabase';
 
 interface DrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  order: any | null; // using any for now, will map to OrderWithItems
+  order: OrderWithItems | null;
   onStatusChange?: (id: string, status: string) => void;
   onOrderUpdated?: () => void;
 }
@@ -23,7 +23,7 @@ const CITIES = [
   'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine', 'Tozeur', 'Tunis', 'Zaghouan'
 ];
 
-const recalculateItemPrices = (items: any[]) => {
+const recalculateItemPrices = (items: OrderItem[]) => {
   // 1. Group quantities by product_id
   const productTotals: Record<string, number> = {};
   items.forEach(item => {
@@ -40,7 +40,7 @@ const recalculateItemPrices = (items: any[]) => {
 
     const prodId = prod.id || item.product_id;
     const totalQty = productTotals[prodId] || item.quantity;
-    const breaks = (prod.quantity_breaks || []) as any[];
+    const breaks = (prod.quantity_breaks || []) as QuantityBreak[];
     const applicableBreak = [...breaks]
       .sort((a, b) => b.min_qty - a.min_qty)
       .find(qb => totalQty >= qb.min_qty);
@@ -50,7 +50,7 @@ const recalculateItemPrices = (items: any[]) => {
       newUnitPrice = applicableBreak.total_price / totalQty;
     } else {
       const hasDiscount = prod.discount != null && prod.discount > 0;
-      const finalPrice = hasDiscount ? Math.round((prod.price ?? 0) * (1 - prod.discount / 100)) : (prod.price ?? 0);
+      const finalPrice = hasDiscount ? Math.round((prod.price ?? 0) * (1 - prod.discount! / 100)) : (prod.price ?? 0);
       newUnitPrice = finalPrice;
     }
 
@@ -67,7 +67,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
   const [formData, setFormData] = React.useState({
     customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: ''
   });
-  const [editableItems, setEditableItems] = React.useState<any[]>([]);
+  const [editableItems, setEditableItems] = React.useState<OrderItem[]>([]);
 
   React.useEffect(() => {
     if (order) {
@@ -97,6 +97,8 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
     };
   }, [isOpen]);
 
+  if (!order) return null;
+
   const handleUpdateQty = (itemId: string, newQty: number) => {
     if (newQty < 1) return;
     setEditableItems(prev => {
@@ -121,10 +123,10 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
   };
 
   const items = isEditing ? editableItems : (order.order_items ?? []);
-  const itemsTotal = items.reduce((s: number, i: any) => {
+  const itemsTotal = items.reduce((s: number, i: OrderItem) => {
     const p = i.products;
     const unitPrice = i.quantity_break_price ?? (p?.discount != null && p.discount > 0
-      ? (p.price ?? 0) * (1 - p.discount / 100)
+      ? (p.price ?? 0) * (1 - p.discount! / 100)
       : (p?.price ?? 0));
     return s + unitPrice * i.quantity;
   }, 0);
@@ -138,8 +140,8 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
     setIsSaving(true);
     try {
       // 1. Find deleted items
-      const originalItemIds = order.order_items?.map((i: any) => i.id) || [];
-      const currentItemIds = editableItems.map((i: any) => i.id);
+      const originalItemIds = order.order_items?.map((i: OrderItem) => i.id) || [];
+      const currentItemIds = editableItems.map((i: OrderItem) => i.id);
       const deletedItemIds = originalItemIds.filter((id: string) => !currentItemIds.includes(id));
       
       // A. Delete removed items from supabase
@@ -175,14 +177,12 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
       
       setIsEditing(false);
       onOrderUpdated?.();
-    } catch (err: any) {
-      alert('Error saving order changes: ' + err.message);
+    } catch (err: unknown) {
+      alert('Error saving order changes: ' + (err as Error).message);
     } finally {
       setIsSaving(false);
     }
   };
-
-  if (!order) return null;
 
   return (
     <>
@@ -332,14 +332,14 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                 </tr>
               </thead>
               <tbody>
-                {items.map((item: any) => {
+                {items.map((item: OrderItem) => {
                   const matchingColor = item.products?.color_options?.find(
-                    (co: any) => co.name === item.selected_color_name
+                    (co: ColorOption) => co.name === item.selected_color_name
                   );
                   const imageUrl = matchingColor?.image_url || item.products?.image_url;
                   
                   const unitPrice = item.quantity_break_price ?? (item.products?.discount != null && item.products.discount > 0
-                    ? (item.products.price ?? 0) * (1 - item.products.discount / 100)
+                    ? (item.products.price ?? 0) * (1 - item.products.discount! / 100)
                     : (item.products?.price ?? 0));
                     
                   return (

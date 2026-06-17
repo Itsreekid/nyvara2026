@@ -60,6 +60,7 @@ export interface Order {
   total_price: number | null;
   status?: string | null;
   created_at: string | null;
+  private_note?: string | null;
   // Cosmos delivery fields
   cosmos_barcode?: string | null;
   cosmos_label_url?: string | null;
