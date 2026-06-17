@@ -17,8 +17,8 @@ const safeFormatDate = (d: string | null | undefined): string => {
   return date.toLocaleDateString('fr-FR');
 };
 
-const DELIVERED_STATUSES = ['delivered'];
-const RETURNED_STATUSES  = ['final-return', 'received-return', 'return-stock'];
+const DELIVERED_STATUSES = ['delivered', 'Livré'];
+const RETURNED_STATUSES  = ['final-return', 'received-return', 'return-stock', 'Retourné'];
 const TARIF_LIVRE        = 8;
 const TARIF_RETOUR       = 3;
 

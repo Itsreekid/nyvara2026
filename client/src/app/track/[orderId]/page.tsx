@@ -79,13 +79,13 @@ export default function TrackOrderPage() {
   const status = order.cosmos_status || 'pending';
   const hasBarcode = !!order.cosmos_barcode;
 
-  if (status === 'delivered') {
+  if (status === 'delivered' || status === 'Livré') {
     currentLevel = 5;
-  } else if (status === 'in-delivery' || status === 'shipped') {
+  } else if (status === 'in-delivery' || status === 'shipped' || status === 'Tentative 1' || status === 'Tentative 2') {
     currentLevel = 4;
-  } else if (status === 'packed' || status === 'in-depot' || status === 'to-be-picked') {
+  } else if (status === 'packed' || status === 'in-depot' || status === 'to-be-picked' || status === 'Au dépôt' || status === 'Emballé') {
     currentLevel = 3;
-  } else if (hasBarcode && status === 'pending') {
+  } else if (hasBarcode && (status === 'pending' || status === 'En attente')) {
     // If it has a barcode, it means it was sent to Cosmos, so it's at least level 2 (Confirmée)
     currentLevel = 2;
   } else {

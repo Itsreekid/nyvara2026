@@ -44,7 +44,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${cormorant.variable} ${roboto.variable}`}>
+    <html lang="fr" className={`${cormorant.variable} ${roboto.variable}`} suppressHydrationWarning>
       <head>
         {/* Preconnect to external origins */}
         <link rel="preconnect" href="https://vkrgfqjsixjsieqzykcx.supabase.co" />

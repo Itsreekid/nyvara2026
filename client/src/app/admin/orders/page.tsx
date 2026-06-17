@@ -72,6 +72,14 @@ export default function AdminOrdersPage() {
   const [pageSize, setPageSize]     = useState(10);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Search Filter
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Reset page to 0 when search query changes
+  useEffect(() => {
+    setPage(0);
+  }, [searchQuery]);
+
   // ── Confirm & dispatch ─────────────────────────────────────────────────────
   const confirmOrderAndDispatch = async (order: OrderWithItems) => {
     if (!confirm("Confirmer cette commande et l'envoyer à Cosmos ?")) return;
@@ -83,14 +91,21 @@ export default function AdminOrdersPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customer_name: order.customer_name, phone: order.phone,
-          city: order.city, total_price: order.total_price, quantity, order_id: order.id,
+          city: order.city, address: order.address, total_price: order.total_price, quantity, order_id: order.id,
+          items: (order.order_items ?? []).map(i => ({
+            quantity: i.quantity,
+            name: i.products?.title || 'Unknown Product',
+          })),
         }),
       });
       if (cosmosRes.ok) {
         const { data: delivery } = await cosmosRes.json();
         await supabase.from('orders').update({
-          cosmos_barcode: delivery.barcode, cosmos_label_url: delivery.labelUrl,
-          cosmos_label_pdf_url: delivery.labelPdfUrl, cosmos_status: delivery.status || 'to-be-picked',
+          cosmos_barcode:      delivery.barcode,
+          cosmos_label_url:    delivery.labelUrl,
+          cosmos_label_pdf_url: delivery.labelPdfUrl,
+          cosmos_status:       delivery.status || 'to-be-picked',
+          call_status:         'confirmed',   // Set business state to confirmed on first dispatch to Cosmos
         }).eq('id', order.id);
         await fetchOrders();
       } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
@@ -117,51 +132,56 @@ export default function AdminOrdersPage() {
   const fetchOrders = useCallback(async () => {
     const from = page * pageSize;
     const to   = from + pageSize - 1;
-    const { data, count } = await supabase
+
+    let queryBuilder = supabase
       .from('orders')
       .select('*, order_items(id, quantity, selected_color_name, quantity_break_price, products(title, price, discount, image_url, color_options))', { count: 'exact' })
-      .eq('archived', viewArchived)
+      .eq('archived', viewArchived);
+
+    if (searchQuery.trim()) {
+      const q = `%${searchQuery.trim()}%`;
+      queryBuilder = queryBuilder.or(`customer_name.ilike.${q},phone.ilike.${q}`);
+    }
+
+    const { data, count } = await queryBuilder
       .order('created_at', { ascending: false })
       .range(from, to);
+
     if (data)  { setOrders(data as OrderWithItems[]); ordersRef.current = data as OrderWithItems[]; }
     if (count !== null) setTotalCount(count);
     setSelected(new Set());
     setLoading(false);
-  }, [viewArchived, page, pageSize]);
+  }, [viewArchived, page, pageSize, searchQuery]);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  // ── Auto-sync ──────────────────────────────────────────────────────────────
+  // ── Sync active shipments (manual button + on-mount) ──────────────────────
   const syncDeliveryStatus = useCallback(async (silent = false) => {
     if (!silent) setSyncing(true);
-    const barcodes = ordersRef.current
-      .filter(o => o.cosmos_barcode)
-      .map(o => o.cosmos_barcode!)
-      .join(',');
-    if (!barcodes) { setSyncing(false); return; }
     try {
-      const res  = await fetch(`/api/cosmos/orders?barcode=${barcodes}`);
+      const res = await fetch('/api/cosmos/sync', { method: 'POST' });
       const data = await res.json();
-      if (data.ok && Array.isArray(data.data)) {
-        await Promise.all(
-          (data.data as { id: string; status: string }[]).map(d =>
-            supabase.from('orders').update({ cosmos_status: d.status }).eq('cosmos_barcode', d.id)
-          )
-        );
+      if (res.ok && data.ok) {
         await fetchOrders();
         setLastSync(new Date());
-        setCountdown(AUTO_SYNC_INTERVAL / 1000);
+      } else {
+        if (!silent) console.warn('[Sync]', data.error || 'Unknown error');
       }
-    } catch (err) { console.error('[AutoSync] Failed:', err); }
+    } catch (err: any) {
+      if (!silent) alert('Erreur: ' + err.message);
+    }
     if (!silent) setSyncing(false);
   }, [fetchOrders]);
 
-  useEffect(() => {
-    const ticker = setInterval(() => setCountdown(p => p <= 1 ? AUTO_SYNC_INTERVAL / 1000 : p - 1), 1000);
-    const syncer = setInterval(() => syncDeliveryStatus(true), AUTO_SYNC_INTERVAL);
-    return () => { clearInterval(ticker); clearInterval(syncer); };
-  }, [syncDeliveryStatus]);
+  // Trigger fetchOrders when its dependencies change
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
+  // ── Auto-trigger silent sync once after initial orders load ─────────────────
+  const hasSyncedOnMount = useRef(false);
+  useEffect(() => {
+    if (!loading && !hasSyncedOnMount.current) {
+      hasSyncedOnMount.current = true;
+      syncDeliveryStatus(true);
+    }
+  }, [loading, syncDeliveryStatus]);
 
 
   // ── Selection helpers ──────────────────────────────────────────────────────
@@ -225,6 +245,27 @@ export default function AdminOrdersPage() {
           {!viewArchived && (
             <button className={styles.syncBtn} onClick={() => syncDeliveryStatus(false)} disabled={syncing}>
               {syncing ? '⟳ Synchronisation...' : '⟳ Actualiser maintenant'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Search Input Filter Component */}
+      <div className={styles.searchContainer}>
+        <div className={styles.searchWrapper}>
+          <input
+            type="text"
+            placeholder="Rechercher par nom de client ou téléphone..."
+            className={styles.searchInput}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className={styles.clearSearchBtn}
+            >
+              Effacer
             </button>
           )}
         </div>

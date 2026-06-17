@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const COSMOS_BASE  = 'https://api.cosmos.tn/api/v1';
+const COSMOS_BASE = 'https://api.cosmos.tn/api/v1';
 const COSMOS_TOKEN = process.env.COSMOS_API_TOKEN!;
 
 /** Valid Tunisian cities accepted by Cosmos API */
@@ -15,35 +15,38 @@ export type CosmosCity = typeof COSMOS_CITIES[number];
 
 /** Try to match a free-text city to a valid Cosmos city */
 export function matchCity(input: string): CosmosCity {
-  const normalized = input.trim().toLowerCase();
+  const normalized = (input || '').trim().toLowerCase();
   const match = COSMOS_CITIES.find(c => c.toLowerCase() === normalized);
-  // fallback: search for partial match, else default to Tunis
   if (match) return match;
   const partial = COSMOS_CITIES.find(c => c.toLowerCase().includes(normalized) || normalized.includes(c.toLowerCase()));
   return partial ?? 'Tunis';
 }
 
 // ─── POST /api/cosmos/orders ─────────────────────────────────────────────────
-// Creates a delivery order in the Cosmos system
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Map Nyvara order fields → Cosmos fields
+    // Format items array into a clean string like "1x Product A, 2x Product B"
+    const formattedContent = Array.isArray(body.items) && body.items.length > 0
+      ? body.items.map((item: any) => `${item.quantity}x ${item.product_title || item.name}`).join(', ')
+      : "Luxury Eyewear";
+
+    // Map Nyvara order fields → Cosmos fields with safe city formatting
     const cosmosPayload = {
-      name:             body.customer_name,
-      phone:            body.phone,
-      address:          body.address || body.city,
-      city:             matchCity(body.city),
-      totalAmount:      Number(body.total_price ?? 0),
-      quantity:         Number(body.quantity ?? 1),
-      content:          body.content || 'Lunettes de soleil Nyvara',
-      note:             body.note ?? undefined,
-      source:           'nyvara',
-      externalBarcode:  body.order_id ?? undefined,  // links Cosmos order → Nyvara order
+      name: body.customer_name,
+      phone: body.phone,
+      address: body.address,
+      city: matchCity(body.city), // ✅ Fixed: Cleans database string (e.g. Béja -> Beja)
+      totalAmount: Number(body.total_price),
+      quantity: Number(body.quantity) || 1,
+      content: formattedContent.slice(0, 255),
+      note: body.note ?? undefined,
+      source: 'nyvara',
+      externalBarcode: body.order_id ?? undefined,
       options: {
         allowToOpen: true,
-        isFragile:   false,
+        isFragile: true, // ✅ Fixed: Safe transport designation for luxury eyewear
       },
     };
 
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${COSMOS_TOKEN}`,
-        'Content-Type':  'application/json',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(cosmosPayload),
     });
@@ -71,7 +74,6 @@ export async function POST(req: NextRequest) {
 }
 
 // ─── GET /api/cosmos/orders?barcode=xxx ──────────────────────────────────────
-// Fetches delivery status for one or more orders
 export async function GET(req: NextRequest) {
   const barcode = req.nextUrl.searchParams.get('barcode');
 
@@ -83,7 +85,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${COSMOS_TOKEN}`,
-        'Content-Type':  'application/json',
+        'Content-Type': 'application/json',
       },
     });
 
@@ -97,7 +99,6 @@ export async function GET(req: NextRequest) {
 }
 
 // ─── DELETE /api/cosmos/orders?barcode=xxx ───────────────────────────────────
-// Deletes a pending delivery order
 export async function DELETE(req: NextRequest) {
   const barcode = req.nextUrl.searchParams.get('barcode');
   if (!barcode) return NextResponse.json({ ok: false, error: 'barcode required' }, { status: 400 });
