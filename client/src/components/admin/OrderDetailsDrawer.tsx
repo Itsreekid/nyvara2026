@@ -270,7 +270,7 @@ export default function OrderDetailsDrawer({
                         onChange={e => setFormData(p => ({ ...p, [key]: e.target.value }))}
                       />
                     ) : (
-                      <span className={styles.detailValue}>{(order as Record<string, unknown>)[key] as string || '—'}</span>
+                      <span className={styles.detailValue}>{(order as unknown as Record<string, unknown>)[key] as string || '—'}</span>
                     )}
                   </div>
                 ))}
