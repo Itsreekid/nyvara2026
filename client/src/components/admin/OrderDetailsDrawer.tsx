@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { X, Edit, Trash2 } from 'lucide-react';
 import styles from './OrderDetailsDrawer.module.css';
-import type { ColorOption, QuantityBreak } from '@/types';
+import type { ColorOption } from '@/types';
 import type { OrderWithItems, OrderItem } from '@/app/admin/orders/page';
 import StatusDropdown from './StatusDropdown';
 import { supabase } from '@/lib/supabase';
@@ -23,162 +23,142 @@ const CITIES = [
   'Sfax', 'Sidi Bouzid', 'Siliana', 'Sousse', 'Tataouine', 'Tozeur', 'Tunis', 'Zaghouan'
 ];
 
-const recalculateItemPrices = (items: OrderItem[]) => {
-  // 1. Group quantities by product_id
-  const productTotals: Record<string, number> = {};
-  items.forEach(item => {
-    const prodId = item.products?.id || item.product_id;
-    if (prodId) {
-      productTotals[prodId] = (productTotals[prodId] || 0) + item.quantity;
-    }
-  });
+interface EditableItem extends OrderItem {
+  custom_price: number;
+}
 
-  // 2. Re-evaluate unit price for each item
-  return items.map(item => {
-    const prod = item.products;
-    if (!prod) return item;
+function getUnitPrice(item: OrderItem): number {
+  if (item.quantity_break_price != null) return item.quantity_break_price;
+  if (item.products?.discount != null && item.products.discount > 0) {
+    return (item.products.price ?? 0) * (1 - item.products.discount / 100);
+  }
+  return item.products?.price ?? 0;
+}
 
-    const prodId = prod.id || item.product_id;
-    const totalQty = productTotals[prodId] || item.quantity;
-    const breaks = (prod.quantity_breaks || []) as QuantityBreak[];
-    const applicableBreak = [...breaks]
-      .sort((a, b) => b.min_qty - a.min_qty)
-      .find(qb => totalQty >= qb.min_qty);
+function findColor(item: OrderItem): ColorOption | undefined {
+  return item.products?.color_options?.find(
+    (co: ColorOption) => 
+      (item.selected_color_name && co.name === item.selected_color_name) ||
+      (item.selected_color_hex1 && co.hex1 === item.selected_color_hex1)
+  );
+}
 
-    let newUnitPrice = item.quantity_break_price;
-    if (applicableBreak) {
-      newUnitPrice = applicableBreak.total_price / totalQty;
-    } else {
-      const hasDiscount = prod.discount != null && prod.discount > 0;
-      const finalPrice = hasDiscount ? Math.round((prod.price ?? 0) * (1 - prod.discount! / 100)) : (prod.price ?? 0);
-      newUnitPrice = finalPrice;
-    }
-
-    return {
-      ...item,
-      quantity_break_price: newUnitPrice
-    };
-  });
-};
-
-export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusChange, onOrderUpdated }: DrawerProps) {
+export default function OrderDetailsDrawer({
+  isOpen, onClose, order, onStatusChange, onOrderUpdated,
+}: DrawerProps) {
   const [isEditing, setIsEditing] = React.useState(false);
-  const [isSaving, setIsSaving] = React.useState(false);
-  const [formData, setFormData] = React.useState({
-    customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: ''
+  const [isSaving, setIsSaving]   = React.useState(false);
+  const [formData, setFormData]   = React.useState({
+    customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: '',
   });
-  const [editableItems, setEditableItems] = React.useState<OrderItem[]>([]);
+  const [editableItems, setEditableItems] = React.useState<EditableItem[]>([]);
+  const [openPickerId, setOpenPickerId]   = React.useState<string | null>(null);
+  const pickerRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (order) {
       setFormData({
-        customer_name: order.customer_name || '',
-        phone: order.phone || '',
-        city: order.city || '',
-        address: order.address || '',
+        customer_name:  order.customer_name  || '',
+        phone:          order.phone          || '',
+        city:           order.city           || '',
+        address:        order.address        || '',
         customer_email: order.customer_email || '',
-        private_note: order.private_note || ''
+        private_note:   order.private_note   || '',
       });
-      setEditableItems(order.order_items ? JSON.parse(JSON.stringify(order.order_items)) : []);
+      setEditableItems(
+        (order.order_items ?? []).map(item => ({
+          ...JSON.parse(JSON.stringify(item)) as OrderItem,
+          custom_price: getUnitPrice(item),
+        }))
+      );
       setIsEditing(false);
     }
   }, [order]);
 
-  // Prevent body scroll when open
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-      setIsEditing(false);
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
+    document.body.style.overflow = isOpen ? 'hidden' : '';
+    if (!isOpen) { setIsEditing(false); setOpenPickerId(null); }
+    return () => { document.body.style.overflow = ''; };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!openPickerId) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node))
+        setOpenPickerId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [openPickerId]);
 
   if (!order) return null;
 
-  const handleUpdateQty = (itemId: string, newQty: number) => {
-    if (newQty < 1) return;
-    setEditableItems(prev => {
-      const updated = prev.map(item => 
-        item.id === itemId ? { ...item, quantity: newQty } : item
-      );
-      return recalculateItemPrices(updated);
-    });
+  const patchItem = (id: string, patch: Partial<EditableItem>) =>
+    setEditableItems(prev => prev.map(i => i.id === id ? { ...i, ...patch } : i));
+
+  const handleUpdateQty   = (id: string, qty: number)     => patchItem(id, { quantity: Math.max(1, qty) });
+  const handleUpdatePrice = (id: string, price: number)   => patchItem(id, { custom_price: price, quantity_break_price: price });
+  const handleUpdateColor = (id: string, name: string | null, hex1: string | null = null, hex2: string | null = null) => 
+    patchItem(id, { selected_color_name: name, selected_color_hex1: hex1, selected_color_hex2: hex2 });
+
+  const handleDeleteItem = (id: string) => {
+    if (editableItems.length <= 1) { alert('Une commande doit contenir au moins un produit.'); return; }
+    if (confirm('Voulez-vous supprimer ce produit de la commande ?'))
+      setEditableItems(prev => prev.filter(i => i.id !== id));
   };
 
-  const handleDeleteItem = (itemId: string) => {
-    if (editableItems.length <= 1) {
-      alert("Une commande doit contenir au moins un produit.");
-      return;
-    }
-    if (confirm("Voulez-vous supprimer ce produit de la commande ?")) {
-      setEditableItems(prev => {
-        const updated = prev.filter(item => item.id !== itemId);
-        return recalculateItemPrices(updated);
-      });
-    }
-  };
+  const viewItems  = order.order_items ?? [];
+  const activeItems: OrderItem[] = isEditing ? editableItems : viewItems;
 
-  const items = isEditing ? editableItems : (order.order_items ?? []);
-  const itemsTotal = items.reduce((s: number, i: OrderItem) => {
-    const p = i.products;
-    const unitPrice = i.quantity_break_price ?? (p?.discount != null && p.discount > 0
-      ? (p.price ?? 0) * (1 - p.discount! / 100)
-      : (p?.price ?? 0));
-    return s + unitPrice * i.quantity;
+  const subTotal = activeItems.reduce((s, i) => {
+    const price = isEditing ? (i as EditableItem).custom_price : getUnitPrice(i);
+    return s + price * i.quantity;
   }, 0);
-
-  const deliveryPrice = 0; // Hardcoded or fetch from order if available
-  const subTotal = itemsTotal;
-  const grandTotal = isEditing ? (subTotal + deliveryPrice) : (order.total_price ?? (subTotal + deliveryPrice));
+  const deliveryPrice = 0;
+  const grandTotal    = subTotal + deliveryPrice;
 
   const handleSave = async () => {
     if (!order) return;
     setIsSaving(true);
+    console.group('[OrderDrawer] 💾 handleSave started');
     try {
-      // 1. Find deleted items
-      const originalItemIds = order.order_items?.map((i: OrderItem) => i.id) || [];
-      const currentItemIds = editableItems.map((i: OrderItem) => i.id);
-      const deletedItemIds = originalItemIds.filter((id: string) => !currentItemIds.includes(id));
-      
-      // A. Delete removed items from supabase
-      if (deletedItemIds.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('order_items')
-          .delete()
-          .in('id', deletedItemIds);
-        if (deleteError) throw deleteError;
+      const originalIds = viewItems.map(i => i.id);
+      const deletedIds  = originalIds.filter(id => !editableItems.find(i => i.id === id));
+      if (deletedIds.length > 0) {
+        const { error } = await supabase.from('order_items').delete().in('id', deletedIds).select();
+        if (error) throw error;
       }
-      
-      // B. Update remaining items
+
       for (const item of editableItems) {
-        const { error: updateItemError } = await supabase
+        const { error } = await supabase
           .from('order_items')
           .update({
-            quantity: item.quantity,
-            quantity_break_price: item.quantity_break_price
+            quantity:             item.quantity,
+            quantity_break_price: item.custom_price,
+            selected_color_name:  item.selected_color_name ?? null,
+            selected_color_hex1:  item.selected_color_hex1 ?? null,
+            selected_color_hex2:  item.selected_color_hex2 ?? null,
           })
-          .eq('id', item.id);
-        if (updateItemError) throw updateItemError;
+          .eq('id', item.id)
+          .select();
+        if (error) throw error;
       }
-      
-      // C. Update order details & total_price
-      const { error: orderError } = await supabase
+
+      const newTotal = editableItems.reduce((s, i) => s + i.custom_price * i.quantity, 0);
+      const { error } = await supabase
         .from('orders')
-        .update({
-          ...formData,
-          total_price: grandTotal
-        })
-        .eq('id', order.id);
-      if (orderError) throw orderError;
-      
+        .update({ ...formData, total_price: newTotal })
+        .eq('id', order.id)
+        .select();
+      if (error) throw error;
+
+      console.groupEnd();
       setIsEditing(false);
       onOrderUpdated?.();
     } catch (err: unknown) {
-      alert('Error saving order changes: ' + (err as Error).message);
+      console.error('❌ Save error:', err);
+      console.groupEnd();
+      alert('Erreur lors de la sauvegarde : ' + (err as Error).message);
     } finally {
       setIsSaving(false);
     }
@@ -186,32 +166,46 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
 
   return (
     <>
-      <div 
-        className={`${styles.backdrop} ${isOpen ? styles.backdropOpen : ''}`} 
-        onClick={onClose} 
-      />
+      <div className={`${styles.backdrop} ${isOpen ? styles.backdropOpen : ''}`} onClick={onClose} />
       <div className={`${styles.drawer} ${isOpen ? styles.drawerOpen : ''}`}>
+
         <div className={styles.header}>
-          <h2 className={styles.headerTitle}>{isEditing ? `Edit order n°${order.id.slice(0, 8)}` : 'Order Details'}</h2>
+          <h2 className={styles.headerTitle}>
+            {isEditing ? `Edit order #${order.id.slice(0, 8)}` : 'Order Details'}
+          </h2>
           <div className={styles.headerActions}>
             {isEditing ? (
-              <button className={styles.saveBtn} onClick={handleSave} disabled={isSaving}>
-                {isSaving ? 'Saving...' : 'Save'}
-              </button>
+              <>
+                <button className={styles.saveBtn} onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button
+                  className={styles.editBtn}
+                  style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.18)' }}
+                  onClick={() => {
+                    setEditableItems(
+                      viewItems.map(item => ({
+                        ...JSON.parse(JSON.stringify(item)) as OrderItem,
+                        custom_price: getUnitPrice(item),
+                      }))
+                    );
+                    setIsEditing(false);
+                  }}
+                >
+                  Cancel
+                </button>
+              </>
             ) : (
               <button className={styles.editBtn} onClick={() => setIsEditing(true)}>
                 <Edit size={14} /> Edit
               </button>
             )}
-            <button className={styles.closeBtn} onClick={onClose}>
-              <X size={18} />
-            </button>
+            <button className={styles.closeBtn} onClick={onClose}><X size={18} /></button>
           </div>
         </div>
 
         <div className={styles.content}>
           <div className={styles.gridTop}>
-            {/* Order Info Card */}
             <div className={styles.card}>
               <h3 className={styles.cardTitle}>Order #{order.id.slice(0, 8)}</h3>
               <div className={styles.detailsList}>
@@ -219,7 +213,8 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                   <span className={styles.detailLabel}>Date Added</span>
                   <span className={styles.detailValue}>
                     {new Date(order.created_at || '').toLocaleString('en-US', {
-                      month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true
+                      month: 'short', day: 'numeric', year: 'numeric',
+                      hour: 'numeric', minute: '2-digit', hour12: true,
                     })}
                   </span>
                 </div>
@@ -232,7 +227,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                   <span className={styles.detailValue}>
                     <StatusDropdown
                       value={order.call_status ?? 'pending'}
-                      onChange={(newStatus) => onStatusChange?.(order.id, newStatus)}
+                      onChange={s => onStatusChange?.(order.id, s)}
                     />
                   </span>
                 </div>
@@ -243,7 +238,7 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                       <textarea
                         className={styles.textareaInput}
                         value={formData.private_note}
-                        onChange={(e) => setFormData(prev => ({ ...prev, private_note: e.target.value }))}
+                        onChange={e => setFormData(p => ({ ...p, private_note: e.target.value }))}
                         placeholder="Add a private note"
                       />
                     ) : (
@@ -254,54 +249,44 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
               </div>
             </div>
 
-            {/* Customer Details Card */}
             <div className={styles.card}>
               <div className={styles.cardHeader}>
                 <h3 className={styles.cardTitle}>Customer Details</h3>
                 <button className={styles.cardActionBtn}>Check orders</button>
               </div>
               <div className={styles.detailsList}>
-                <div className={styles.detailRow}>
-                  <span className={styles.detailLabel}>Name</span>
-                  {isEditing ? (
-                    <input className={styles.textInput} value={formData.customer_name} onChange={(e) => setFormData(prev => ({...prev, customer_name: e.target.value}))} />
-                  ) : (
-                    <span className={styles.detailValue}>{order.customer_name}</span>
-                  )}
-                </div>
-                <div className={styles.detailRow}>
-                  <span className={styles.detailLabel}>Phone</span>
-                  {isEditing ? (
-                    <input className={styles.textInput} value={formData.phone} onChange={(e) => setFormData(prev => ({...prev, phone: e.target.value}))} />
-                  ) : (
-                    <span className={styles.detailValue}>{order.phone}</span>
-                  )}
-                </div>
+                {([
+                  { label: 'Name',    key: 'customer_name'  },
+                  { label: 'Phone',   key: 'phone'          },
+                  { label: 'Address', key: 'address'        },
+                  { label: 'Email',   key: 'customer_email' },
+                ] as { label: string; key: keyof typeof formData }[]).map(({ label, key }) => (
+                  <div className={styles.detailRow} key={key}>
+                    <span className={styles.detailLabel}>{label}</span>
+                    {isEditing ? (
+                      <input
+                        className={styles.textInput}
+                        value={formData[key]}
+                        onChange={e => setFormData(p => ({ ...p, [key]: e.target.value }))}
+                      />
+                    ) : (
+                      <span className={styles.detailValue}>{(order as Record<string, unknown>)[key] as string || '—'}</span>
+                    )}
+                  </div>
+                ))}
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>City</span>
                   {isEditing ? (
-                    <select className={styles.selectInput} value={formData.city} onChange={(e) => setFormData(prev => ({...prev, city: e.target.value}))}>
+                    <select
+                      className={styles.selectInput}
+                      value={formData.city}
+                      onChange={e => setFormData(p => ({ ...p, city: e.target.value }))}
+                    >
                       <option value="">Select a city</option>
                       {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   ) : (
                     <span className={styles.detailValue}>{order.city}</span>
-                  )}
-                </div>
-                <div className={styles.detailRow}>
-                  <span className={styles.detailLabel}>Address</span>
-                  {isEditing ? (
-                    <input className={styles.textInput} value={formData.address} onChange={(e) => setFormData(prev => ({...prev, address: e.target.value}))} />
-                  ) : (
-                    <span className={styles.detailValue}>{order.address || '—'}</span>
-                  )}
-                </div>
-                <div className={styles.detailRow}>
-                  <span className={styles.detailLabel}>Email</span>
-                  {isEditing ? (
-                    <input className={styles.textInput} value={formData.customer_email} onChange={(e) => setFormData(prev => ({...prev, customer_email: e.target.value}))} />
-                  ) : (
-                    <span className={styles.detailValue}>{order.customer_email || '—'}</span>
                   )}
                 </div>
                 <div className={styles.detailRow}>
@@ -312,13 +297,11 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
             </div>
           </div>
 
-          {/* Tabs */}
           <div className={styles.tabs}>
             <button className={`${styles.tab} ${styles.tabActive}`}>Summary</button>
             <button className={styles.tab}>History</button>
           </div>
 
-          {/* Items Table */}
           <div className={styles.tableContainer}>
             <table className={styles.table}>
               <thead>
@@ -332,54 +315,178 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                 </tr>
               </thead>
               <tbody>
-                {items.map((item: OrderItem) => {
-                  const matchingColor = item.products?.color_options?.find(
-                    (co: ColorOption) => co.name === item.selected_color_name
-                  );
-                  const imageUrl = matchingColor?.image_url || item.products?.image_url;
-                  
-                  const unitPrice = item.quantity_break_price ?? (item.products?.discount != null && item.products.discount > 0
-                    ? (item.products.price ?? 0) * (1 - item.products.discount! / 100)
-                    : (item.products?.price ?? 0));
-                    
+                {(isEditing ? editableItems : viewItems).map(item => {
+                  const editItem  = isEditing ? (item as EditableItem) : null;
+                  const unitPrice = isEditing ? editItem!.custom_price : getUnitPrice(item);
+                  const lineTotal = unitPrice * item.quantity;
+                  const imgUrl    = findColor(item)?.image_url ?? item.products?.image_url;
+
                   return (
                     <tr key={item.id} className={styles.tableRow}>
                       <td className={styles.productCell}>
-                        {imageUrl && (
-                          <Image
-                            src={imageUrl}
-                            alt={item.products?.title ?? 'Product'}
-                            width={40}
-                            height={40}
-                            className={styles.productImg}
-                            unoptimized
-                          />
-                        )}
-                        <span>{item.products?.title ?? 'Unknown'}</span>
+                        <a 
+                          href={`/shop/${item.products?.id}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
+                        >
+                          {imgUrl && (
+                            <div className={styles.productImgWrapper}>
+                              <Image src={imgUrl} alt={item.products?.title ?? ''} width={40} height={40}
+                                className={styles.productImg} unoptimized />
+                              <div className={styles.productImgHoverZoom}>
+                                <Image src={imgUrl} alt={item.products?.title ?? ''} width={250} height={250}
+                                  unoptimized style={{ objectFit: 'cover', borderRadius: 8 }} />
+                              </div>
+                            </div>
+                          )}
+                          <span style={{ transition: 'color 0.2s' }} className={styles.productTitleHover}>
+                            {item.products?.title ?? 'Unknown'}
+                          </span>
+                        </a>
                       </td>
-                      <td>{item.selected_color_name || '—'}</td>
+
+                      <td style={{ position: 'relative' }}>
+                        {isEditing ? (() => {
+                          const colors   = item.products?.color_options ?? [];
+                          const editItem = item as EditableItem;
+                          const selected = colors.find(co => 
+                            (editItem.selected_color_name && co.name === editItem.selected_color_name) ||
+                            (editItem.selected_color_hex1 && co.hex1 === editItem.selected_color_hex1)
+                          ) ?? null;
+                          const isOpen   = openPickerId === item.id;
+                          if (colors.length === 0) return <span style={{ color: 'rgba(255,255,255,0.3)' }}>—</span>;
+                          return (
+                            <div ref={isOpen ? pickerRef : undefined} style={{ position: 'relative', display: 'inline-block', minWidth: 140 }}>
+                              <button
+                                type="button"
+                                onClick={() => setOpenPickerId(isOpen ? null : item.id)}
+                                style={{
+                                  display: 'flex', alignItems: 'center', gap: 8,
+                                  width: '100%', padding: '5px 10px 5px 8px',
+                                  background: 'rgba(255,255,255,0.06)',
+                                  border: '1.5px solid rgba(255,255,255,0.18)',
+                                  borderRadius: 6, cursor: 'pointer', color: '#fff',
+                                  fontSize: 13, outline: 'none', justifyContent: 'space-between',
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                  {selected ? (
+                                    <div style={{
+                                      width: 16, height: 16, borderRadius: '50%', flexShrink: 0,
+                                      background: selected.hex2
+                                        ? `linear-gradient(135deg, ${selected.hex1} 50%, ${selected.hex2} 50%)`
+                                        : selected.hex1,
+                                      border: '1.5px solid rgba(255,255,255,0.25)',
+                                      boxShadow: '0 0 0 1px rgba(0,0,0,0.3)',
+                                    }} />
+                                  ) : (
+                                    <div style={{ width: 16, height: 16, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', border: '1px dashed rgba(255,255,255,0.3)' }} />
+                                  )}
+                                  <span>{selected?.name || '— Sans couleur —'}</span>
+                                </div>
+                                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ opacity: 0.5, flexShrink: 0 }}>
+                                  <path d={isOpen ? 'M1 5l4-4 4 4' : 'M1 1l4 4 4-4'} stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </button>
+                              {isOpen && (
+                                <div style={{
+                                  position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 9999,
+                                  background: '#16162a', border: '1.5px solid rgba(255,255,255,0.15)',
+                                  borderRadius: 10, padding: '8px',
+                                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                                  display: 'flex', flexDirection: 'column', gap: 6,
+                                }}>
+                                  <div
+                                    onClick={() => { handleUpdateColor(item.id, null, null, null); setOpenPickerId(null); }}
+                                    title="Sans couleur"
+                                    style={{
+                                      width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',
+                                      background: 'rgba(255,255,255,0.08)',
+                                      border: !selected ? '2.5px solid #fff' : '1.5px solid rgba(255,255,255,0.25)',
+                                      boxShadow: !selected ? '0 0 0 2.5px #1967d2' : '0 0 0 1px rgba(0,0,0,0.3)',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      fontSize: 11, color: 'rgba(255,255,255,0.5)',
+                                      transform: !selected ? 'scale(1.12)' : 'scale(1)',
+                                      transition: 'all 0.15s',
+                                    }}
+                                  >✕</div>
+                                  {colors.map(co => {
+                                    const active = (editItem.selected_color_name && editItem.selected_color_name === co.name) || 
+                                                   (editItem.selected_color_hex1 && editItem.selected_color_hex1 === co.hex1);
+                                    return (
+                                      <div
+                                        key={co.id}
+                                        onClick={() => { handleUpdateColor(item.id, co.name, co.hex1, co.hex2 ?? null); setOpenPickerId(null); }}
+                                        title={co.name || 'Couleur'}
+                                        style={{
+                                          width: 26, height: 26, borderRadius: '50%', cursor: 'pointer',
+                                          background: co.hex2
+                                            ? `linear-gradient(135deg, ${co.hex1} 50%, ${co.hex2} 50%)`
+                                            : co.hex1,
+                                          border: active ? '2.5px solid #fff' : '1.5px solid rgba(255,255,255,0.2)',
+                                          boxShadow: active ? '0 0 0 2.5px #1967d2' : '0 0 0 1px rgba(0,0,0,0.35)',
+                                          transform: active ? 'scale(1.12)' : 'scale(1)',
+                                          transition: 'all 0.15s',
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })() : (() => {
+                          const co   = findColor(item);
+                          const hex1 = co?.hex1 || item.selected_color_hex1;
+                          const hex2 = co?.hex2 || item.selected_color_hex2;
+                          const name = item.selected_color_name;
+                          if (!hex1 && !name) return <span style={{ color: 'rgba(255,255,255,0.3)' }}>—</span>;
+                          return (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {hex1 && <div style={{
+                                width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                                background: hex2 ? `linear-gradient(135deg, ${hex1} 50%, ${hex2} 50%)` : hex1,
+                                border: '1.5px solid rgba(255,255,255,0.18)',
+                                boxShadow: '0 0 0 1px rgba(0,0,0,0.25)',
+                              }} />}
+                              {name && <span style={{ fontSize: 13 }}>{name}</span>}
+                            </div>
+                          );
+                        })()}
+                      </td>
+
                       <td>
                         {isEditing ? (
-                          <input 
-                            type="number" 
-                            min="1" 
-                            value={item.quantity} 
-                            onChange={(e) => handleUpdateQty(item.id, parseInt(e.target.value) || 1)} 
-                            className={styles.qtyInput} 
+                          <input
+                            type="number" min="1"
+                            value={editItem!.quantity}
+                            onChange={e => handleUpdateQty(item.id, parseInt(e.target.value) || 1)}
+                            className={styles.qtyInput}
                           />
-                        ) : (
-                          item.quantity
-                        )}
+                        ) : item.quantity}
                       </td>
-                      <td>{unitPrice.toFixed(2)} TND</td>
-                      <td>{(unitPrice * item.quantity).toFixed(2)} TND</td>
+
+                      <td>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <input
+                              type="number" min="0" step="0.001"
+                              value={editItem!.custom_price}
+                              onChange={e => handleUpdatePrice(item.id, parseFloat(e.target.value) || 0)}
+                              className={styles.qtyInput}
+                              style={{ width: 80 }}
+                            />
+                            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>TND</span>
+                          </div>
+                        ) : `${unitPrice.toFixed(3)} TND`}
+                      </td>
+
+                      <td>{lineTotal.toFixed(3)} TND</td>
+
                       {isEditing && (
                         <td>
-                          <button 
-                            className={styles.deleteBtn}
-                            onClick={() => handleDeleteItem(item.id)}
-                            title="Remove product"
-                          >
+                          <button className={styles.deleteBtn} onClick={() => handleDeleteItem(item.id)} title="Remove">
                             <Trash2 size={16} />
                           </button>
                         </td>
@@ -387,19 +494,18 @@ export default function OrderDetailsDrawer({ isOpen, onClose, order, onStatusCha
                     </tr>
                   );
                 })}
-                
-                {/* Totals */}
+
                 <tr className={styles.totalsRow}>
                   <td colSpan={isEditing ? 5 : 4}>Sub-total</td>
-                  <td>{subTotal.toFixed(2)} TND</td>
+                  <td>{subTotal.toFixed(3)} TND</td>
                 </tr>
                 <tr className={styles.totalsRow}>
                   <td colSpan={isEditing ? 5 : 4}>Delivery Price</td>
-                  <td>{deliveryPrice.toFixed(2)} TND</td>
+                  <td>{deliveryPrice.toFixed(3)} TND</td>
                 </tr>
                 <tr className={`${styles.totalsRow} ${styles.grandTotal}`}>
                   <td colSpan={isEditing ? 5 : 4}>Total</td>
-                  <td>{grandTotal.toFixed(2)} TND</td>
+                  <td>{grandTotal.toFixed(3)} TND</td>
                 </tr>
               </tbody>
             </table>

@@ -124,18 +124,19 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
   const [activeIdx, setActiveIdx] = useState(0);
   const [isPaused,  setIsPaused]  = useState(false);
+  const [autoPlayStopped, setAutoPlayStopped] = useState(false);
   const [isZoomed,  setIsZoomed]  = useState(false);
   const imageWrapRef = useRef<HTMLDivElement>(null);
   const activeImage  = allImages[activeIdx] ?? null;
 
   // Auto-slideshow
   useEffect(() => {
-    if (allImages.length <= 1 || isPaused) return;
+    if (allImages.length <= 1 || isPaused || autoPlayStopped) return;
     const id = setInterval(() => {
       setActiveIdx(prev => (prev + 1) % allImages.length);
     }, SLIDE_INTERVAL);
     return () => clearInterval(id);
-  }, [allImages.length, isPaused]);
+  }, [allImages.length, isPaused, autoPlayStopped]);
 
   // Cursor-point zoom
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -155,8 +156,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
   const handleThumbClick = (idx: number) => {
     setActiveIdx(idx);
-    setIsPaused(true);
-    setTimeout(() => setIsPaused(false), 4000);
+    setAutoPlayStopped(true);
   };
 
   const handleAddToCart = () => {
@@ -295,10 +295,12 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                       key={co.id}
                       className={`${styles.colorCircle} ${selectedColors[0]?.id === co.id ? styles.colorCircleActive : ''}`}
                       onClick={() => {
+                        if (selectedColors[0]?.id === co.id) return;
                         const newColors = [co];
                         setSelectedColors(newColors);
                         setLastSelectedColor(co);
                         setActiveIdx(colorImageIndex[co.id] ?? 0);
+                        setAutoPlayStopped(true);
                       }}
                       style={co.hex2 ? { background: `linear-gradient(135deg, ${co.hex1} 50%, ${co.hex2} 50%)` } : { background: co.hex1 }}
                       title={co.name}
@@ -392,11 +394,13 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                                       className={`${styles.colorCircleSmall} ${selectedColors[uIdx]?.id === co.id ? styles.colorCircleSmallActive : ''}`}
                                       onClick={(e) => {
                                         e.stopPropagation();
+                                        if (selectedColors[uIdx]?.id === co.id) return;
                                         const newColors = [...selectedColors];
                                         newColors[uIdx] = co;
                                         setSelectedColors(newColors);
                                         setLastSelectedColor(co);
                                         setActiveIdx(colorImageIndex[co.id] ?? 0);
+                                        setAutoPlayStopped(true);
                                       }}
                                       style={co.hex2 ? { background: `linear-gradient(135deg, ${co.hex1} 50%, ${co.hex2} 50%)` } : { background: co.hex1 }}
                                       title={co.name}

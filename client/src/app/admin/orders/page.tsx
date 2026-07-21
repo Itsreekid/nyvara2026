@@ -32,6 +32,8 @@ export interface OrderItem {
   quantity: number;
   quantity_break_price: number | null;
   selected_color_name: string | null;
+  selected_color_hex1: string | null;
+  selected_color_hex2: string | null;
   products: { id: string; title: string; price: number | null; discount: number | null; image_url: string | null; color_options: ColorOption[] | null; quantity_breaks: any[] | null } | null;
 }
 
@@ -129,7 +131,7 @@ export default function AdminOrdersPage() {
 
     let queryBuilder = supabase
       .from('orders')
-      .select('*, order_items(id, product_id, quantity, selected_color_name, quantity_break_price, products(id, title, price, discount, image_url, color_options, quantity_breaks))', { count: 'exact' })
+      .select('*, order_items(id, product_id, quantity, selected_color_name, selected_color_hex1, selected_color_hex2, quantity_break_price, products(id, title, price, discount, image_url, color_options, quantity_breaks))', { count: 'exact' })
       .eq('archived', viewArchived);
 
     if (searchQuery.trim()) {

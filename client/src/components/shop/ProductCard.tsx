@@ -78,7 +78,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
               alt={product.title ?? 'Sunglasses'}
               fill
               className={styles.image}
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
               priority={priority}
             />
           ) : (

@@ -100,15 +100,20 @@ export function useCreateOrder() {
         order_id:   order.id,
         product_id: i.product_id,
         quantity:   i.quantity,
-        selected_color_name: i.selected_color?.name || null,
-        quantity_break_price: itemPrices[idx].price, // Store the special price applied
+        selected_color_name: i.selected_color?.name ?? null,
+        selected_color_hex1: i.selected_color?.hex1 ?? null,
+        selected_color_hex2: i.selected_color?.hex2 ?? null,
+        quantity_break_price: itemPrices[idx].price,
       }));
 
       const { error: itemsErr } = await supabase
         .from('order_items')
         .insert(orderItems);
 
-      if (itemsErr) throw itemsErr;
+      if (itemsErr) {
+        console.error('[createOrder] Failed to insert order items:', itemsErr);
+        throw itemsErr;
+      }
 
       // 4. Cosmos dispatch removed. The order remains 'pending'.
       // The admin will trigger the Cosmos API manually from the dashboard.

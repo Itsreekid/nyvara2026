@@ -363,9 +363,9 @@
 }
 
 .colorCircleActive {
-  transform: scale(1.1);
-  box-shadow: 0 0 0 2px var(--color-gold);
+  transform: scale(1.15);
   border-color: var(--color-white);
+  box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-gold);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -698,7 +698,7 @@
 }
 .colorCircleSmall:hover { transform: scale(1.1); }
 .colorCircleSmallActive {
-  border: 2px solid var(--color-gold) !important;
+  border-color: var(--color-white) !important;
   transform: scale(1.15);
-  box-shadow: 0 0 5px rgba(200,150,30,0.3);
+  box-shadow: 0 0 0 2px var(--color-white), 0 0 0 4px var(--color-gold);
 }

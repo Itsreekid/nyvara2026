@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
+import dynamic from 'next/dynamic';
 import HeroSection      from '@/components/home/HeroSection';
-import FrameCarousel    from '@/components/home/FrameCarousel';
-import FeaturedProducts from '@/components/home/FeaturedProducts';
-import BrandStrip       from '@/components/home/BrandStrip';
+
+const FrameCarousel = dynamic(() => import('@/components/home/FrameCarousel'));
+const FeaturedProducts = dynamic(() => import('@/components/home/FeaturedProducts'));
+const BrandStrip = dynamic(() => import('@/components/home/BrandStrip'));
 
 export const metadata: Metadata = {
   title:       'Nyvara — Luxury Sunglasses Tunisia',

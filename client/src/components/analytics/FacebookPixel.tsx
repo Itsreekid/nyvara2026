@@ -42,8 +42,8 @@ export default function FacebookPixel() {
 
   return (
     <>
-      {/* Meta Pixel Base Code — afterInteractive ensures it loads before user events */}
-      <Script id="fb-pixel" strategy="afterInteractive">
+      {/* Meta Pixel Base Code — lazyOnload ensures it doesn't block the main thread */}
+      <Script id="fb-pixel" strategy="lazyOnload">
         {`
           !function(f,b,e,v,n,t,s)
           {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
