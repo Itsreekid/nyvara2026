@@ -311,6 +311,66 @@
   }
 }
 
+@media (max-width: 640px) {
+  /* Tabs compact */
+  .tabs {
+    gap: 2px;
+  }
+  .tab {
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+
+  /* Search input full width */
+  .searchContainer {
+    max-width: 100%;
+    margin-bottom: 16px;
+  }
+  .searchInput {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  /* Bulk bar compact */
+  .bulkBar {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+  .bulkCount {
+    font-size: 12px;
+  }
+  .archiveBtn, .clearBtn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  /* Items button smaller */
+  .itemsBtn {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  /* Action buttons smaller */
+  .eyeBtn, .deliverBtn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+  }
+
+  /* Pagination compact */
+  .paginationBar {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .rowsPerPage span {
+    display: none;
+  }
+  .pageSizeSelect {
+    font-size: 12px;
+  }
+}
+
 /* ── Pagination bar ──────────────────────────────── */
 .paginationBar {
   display: flex;
@@ -469,9 +529,32 @@
   cursor: pointer;
   transition: all 0.2s ease;
 }
-.deliverBtn:hover {
+.deliverBtn:hover:not(:disabled) {
   background: #32dc64;
   border-color: #32dc64;
   color: #000;
   transform: translateY(-1px);
+}
+
+/* ── Customer Type Badges ── */
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.badgeLoyal {
+  background: rgba(50,220,100,0.15);
+  color: #32dc64;
+  border: 1px solid rgba(50,220,100,0.3);
+}
+
+.badgeNew {
+  background: rgba(120,120,120,0.15);
+  color: #a8a29e;
+  border: 1px solid rgba(120,120,120,0.3);
 }

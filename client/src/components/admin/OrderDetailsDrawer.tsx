@@ -6,7 +6,7 @@ import { X, Edit, Trash2 } from 'lucide-react';
 import styles from './OrderDetailsDrawer.module.css';
 import type { ColorOption } from '@/types';
 import type { OrderWithItems, OrderItem } from '@/app/admin/orders/page';
-import StatusDropdown from './StatusDropdown';
+import StatusDropdown, { CALL_STATUSES } from './StatusDropdown';
 import { supabase } from '@/lib/supabase';
 
 interface DrawerProps {
@@ -54,6 +54,35 @@ export default function OrderDetailsDrawer({
   const [editableItems, setEditableItems] = React.useState<EditableItem[]>([]);
   const [openPickerId, setOpenPickerId]   = React.useState<string | null>(null);
   const pickerRef = React.useRef<HTMLDivElement>(null);
+
+  const [activeTab, setActiveTab] = React.useState<'summary' | 'history'>('summary');
+  const [historyOrders, setHistoryOrders] = React.useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = React.useState(false);
+  const [expandedHistoryId, setExpandedHistoryId] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setActiveTab('summary');
+      setHistoryOrders([]);
+      setExpandedHistoryId(null);
+    }
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (activeTab === 'history' && order?.phone) {
+      setHistoryLoading(true);
+      supabase
+        .from('orders')
+        .select('id, created_at, total_price, call_status, order_items(quantity, quantity_break_price, selected_color_name, products(id, title, price, discount, image_url))')
+        .eq('phone', order.phone)
+        .neq('id', order.id)
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          if (!error && data) setHistoryOrders(data);
+          setHistoryLoading(false);
+        });
+    }
+  }, [activeTab, order?.phone, order?.id]);
 
   React.useEffect(() => {
     if (order) {
@@ -252,7 +281,9 @@ export default function OrderDetailsDrawer({
             <div className={styles.card}>
               <div className={styles.cardHeader}>
                 <h3 className={styles.cardTitle}>Customer Details</h3>
-                <button className={styles.cardActionBtn}>Check orders</button>
+                <button type="button" className={styles.cardActionBtn} onClick={() => setActiveTab('history')}>
+                  Check orders
+                </button>
               </div>
               <div className={styles.detailsList}>
                 {([
@@ -298,11 +329,22 @@ export default function OrderDetailsDrawer({
           </div>
 
           <div className={styles.tabs}>
-            <button className={`${styles.tab} ${styles.tabActive}`}>Summary</button>
-            <button className={styles.tab}>History</button>
+            <button 
+              className={`${styles.tab} ${activeTab === 'summary' ? styles.tabActive : ''}`}
+              onClick={() => setActiveTab('summary')}
+            >
+              Summary
+            </button>
+            <button 
+              className={`${styles.tab} ${activeTab === 'history' ? styles.tabActive : ''}`}
+              onClick={() => setActiveTab('history')}
+            >
+              History
+            </button>
           </div>
 
           <div className={styles.tableContainer}>
+            {activeTab === 'summary' ? (
             <table className={styles.table}>
               <thead>
                 <tr>
@@ -509,6 +551,109 @@ export default function OrderDetailsDrawer({
                 </tr>
               </tbody>
             </table>
+            ) : (
+              historyLoading ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                  Chargement de l'historique...
+                </div>
+              ) : historyOrders.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
+                  Aucune commande précédente
+                </div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ display: 'none' }} className={styles.hideMobile}>Order ID</th>
+                      <th>Date</th>
+                      <th>Items</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historyOrders.map(h => {
+                      const itemCount = h.order_items?.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) || 0;
+                      const statusObj = CALL_STATUSES.find(s => s.value === h.call_status) || CALL_STATUSES[0];
+                      const isExpanded = expandedHistoryId === h.id;
+                      
+                      return (
+                        <React.Fragment key={h.id}>
+                          <tr 
+                            className={styles.tableRow} 
+                            onClick={() => setExpandedHistoryId(isExpanded ? null : h.id)}
+                            style={{ cursor: 'pointer', transition: 'background 0.2s', background: isExpanded ? 'rgba(255,255,255,0.03)' : undefined }}
+                          >
+                            <td style={{ display: 'none' }} className={styles.hideMobile}>#{h.id.slice(0, 8)}</td>
+                            <td style={{ whiteSpace: 'nowrap' }}>
+                              {new Date(h.created_at || '').toLocaleDateString('fr-FR', {
+                                day: '2-digit', month: 'short', year: 'numeric'
+                              })}
+                            </td>
+                            <td>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                padding: '4px 10px', borderRadius: '6px',
+                                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.12)',
+                                fontSize: '12px', fontWeight: 600, whiteSpace: 'nowrap'
+                              }}>
+                                {itemCount} article{itemCount > 1 ? 's' : ''}
+                                <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }}>
+                                  <path d="M1 1l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              </span>
+                            </td>
+                            <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{h.total_price?.toFixed(3)} TND</td>
+                            <td style={{ whiteSpace: 'nowrap', width: '1%' }}>
+                              <span style={{ 
+                                  padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
+                                  background: statusObj.bg, color: statusObj.color,
+                                  border: `1px solid ${statusObj.color.replace(')', ', 0.3)').replace('rgb', 'rgba')}`,
+                                  whiteSpace: 'nowrap', display: 'inline-block'
+                               }}>
+                                {statusObj.label}
+                              </span>
+                            </td>
+                          </tr>
+                          {isExpanded && h.order_items && h.order_items.length > 0 && (
+                            <tr style={{ background: 'rgba(255,255,255,0.015)' }}>
+                              <td colSpan={5} style={{ padding: '16px 24px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                  {h.order_items.map((item: any, idx: number) => {
+                                    const unitPrice = getUnitPrice(item);
+                                    return (
+                                      <div key={idx} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                                        {item.products?.image_url ? (
+                                          <Image src={item.products.image_url} width={40} height={40} style={{ borderRadius: '6px', objectFit: 'cover' }} alt="" unoptimized />
+                                        ) : (
+                                          <div style={{ width: 40, height: 40, borderRadius: '6px', background: 'rgba(255,255,255,0.1)' }} />
+                                        )}
+                                        <div style={{ flex: 1 }}>
+                                          <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
+                                            {item.products?.title || 'Produit inconnu'}
+                                          </div>
+                                          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)', marginTop: '2px' }}>
+                                            {item.quantity} × {unitPrice.toFixed(3)} TND
+                                            {item.selected_color_name && <span> • {item.selected_color_name}</span>}
+                                          </div>
+                                        </div>
+                                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#fff' }}>
+                                          {(unitPrice * item.quantity).toFixed(3)} TND
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )
+            )}
           </div>
         </div>
       </div>

@@ -41,6 +41,7 @@ export interface OrderWithItems extends Order {
   order_items: OrderItem[];
   archived: boolean;
   call_status: string;
+  customer_order_count?: number;
 }
 
 export default function AdminOrdersPage() {
@@ -143,7 +144,38 @@ export default function AdminOrdersPage() {
       .order('created_at', { ascending: false })
       .range(from, to);
 
-    if (data)  { setOrders(data as OrderWithItems[]); ordersRef.current = data as OrderWithItems[]; }
+    if (data && data.length > 0) {
+      const phones = Array.from(new Set(data.map(o => o.phone).filter(Boolean)));
+      if (phones.length > 0) {
+        const { data: allPhoneOrders } = await supabase
+          .from('orders')
+          .select('phone')
+          .in('phone', phones);
+        
+        const phoneCounts: Record<string, number> = {};
+        if (allPhoneOrders) {
+          for (const row of allPhoneOrders) {
+            if (row.phone) {
+              phoneCounts[row.phone] = (phoneCounts[row.phone] || 0) + 1;
+            }
+          }
+        }
+        
+        const enrichedData = data.map(order => ({
+          ...order,
+          customer_order_count: phoneCounts[order.phone as string] || 1,
+        }));
+        
+        setOrders(enrichedData as OrderWithItems[]);
+        ordersRef.current = enrichedData as OrderWithItems[];
+      } else {
+        setOrders(data as OrderWithItems[]);
+        ordersRef.current = data as OrderWithItems[];
+      }
+    } else {
+      setOrders([]);
+      ordersRef.current = [];
+    }
     if (count !== null) setTotalCount(count);
     setSelected(new Set());
     setLoading(false);
@@ -309,7 +341,7 @@ export default function AdminOrdersPage() {
           <table className={adminStyles.table}>
             <thead>
               <tr>
-                <th className={styles.checkboxCol}>
+                <th className={`${styles.checkboxCol} ${adminStyles.hideMobile}`}>
                   <input
                     type="checkbox"
                     className={styles.checkbox}
@@ -318,13 +350,13 @@ export default function AdminOrdersPage() {
                     title="Tout sélectionner"
                   />
                 </th>
-                <th>ID</th>
+                <th className={adminStyles.hideMobile}>ID</th>
                 <th>Client</th>
-                <th>Téléphone</th>
+                <th className={adminStyles.hideMobile}>Téléphone</th>
                 <th>Statut</th>
                 <th>Produits</th>
                 <th>Total</th>
-                {!viewArchived && <th>Étiquette</th>}
+                <th>Type Client</th>
                 <th style={{ width: '90px' }}></th>
               </tr>
             </thead>
@@ -339,7 +371,7 @@ export default function AdminOrdersPage() {
                     key={order.id}
                     className={isChecked ? styles.rowSelected : ''}
                   >
-                    <td className={styles.checkboxCol}>
+                    <td className={`${styles.checkboxCol} ${adminStyles.hideMobile}`}>
                       <input
                         type="checkbox"
                         className={styles.checkbox}
@@ -347,9 +379,9 @@ export default function AdminOrdersPage() {
                         onChange={() => toggleSelect(order.id)}
                       />
                     </td>
-                    <td>#{order.id.slice(0, 8)}</td>
+                    <td className={adminStyles.hideMobile}>#{order.id.slice(0, 8)}</td>
                     <td>{order.customer_name}</td>
-                    <td>{order.phone}</td>
+                    <td className={adminStyles.hideMobile}>{order.phone}</td>
                     <td>
                       <StatusDropdown
                         value={order.call_status ?? 'pending'}
@@ -362,31 +394,26 @@ export default function AdminOrdersPage() {
                         <span>{itemCount} article{itemCount !== 1 ? 's' : ''}</span>
                       </button>
                     </td>
-                    <td>{order.total_price?.toFixed(3)} TND</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{order.total_price?.toFixed(3)} TND</td>
 
-                    {!viewArchived && (
-                      <td>
-                        {order.cosmos_barcode ? (
-                          <div className={styles.labelBtns}>
-                            <a href={`/api/cosmos/labels?barcode=${order.cosmos_barcode}&format=pdf`} target="_blank" rel="noopener noreferrer" className={styles.labelBtn}>🖨 PDF</a>
-                            <a href={`/api/cosmos/labels?barcode=${order.cosmos_barcode}&format=html`} target="_blank" rel="noopener noreferrer" className={`${styles.labelBtn} ${styles.labelBtnHtml}`}>🌐 HTML</a>
-                          </div>
-                        ) : (
-                          <span className={styles.noLabel}>—</span>
-                        )}
-                      </td>
-                    )}
+                    <td>
+                      {order.customer_order_count && order.customer_order_count > 1 ? (
+                        <span className={`${styles.badge} ${styles.badgeLoyal}`} style={{ whiteSpace: 'nowrap' }}>Client fidèle</span>
+                      ) : (
+                        <span className={`${styles.badge} ${styles.badgeNew}`} style={{ whiteSpace: 'nowrap' }}>Nouveau client</span>
+                      )}
+                    </td>
                     <td>
                       <div className={styles.actionBtns}>
-                        {!order.cosmos_barcode && (
-                          <button
-                            className={styles.deliverBtn}
-                            onClick={() => confirmOrderAndDispatch(order)}
-                            title="Envoyer à Cosmos"
-                          >
-                            <Truck size={18} />
-                          </button>
-                        )}
+                        <button
+                          className={styles.deliverBtn}
+                          style={order.cosmos_barcode ? { color: '#32dc64', borderColor: 'rgba(50,220,100,0.3)', background: 'rgba(50,220,100,0.08)', cursor: 'default' } : undefined}
+                          onClick={order.cosmos_barcode ? undefined : () => confirmOrderAndDispatch(order)}
+                          title={order.cosmos_barcode ? "Déjà envoyé à Cosmos" : "Envoyer à Cosmos"}
+                          disabled={!!order.cosmos_barcode}
+                        >
+                          <Truck size={18} />
+                        </button>
                         <button 
                           className={styles.eyeBtn} 
                           onClick={() => setSelectedOrder(order)}
@@ -401,7 +428,7 @@ export default function AdminOrdersPage() {
               })}
               {orders.length === 0 && (
                 <tr>
-                  <td colSpan={viewArchived ? 8 : 9} style={{ textAlign: 'center', padding: '32px' }}>
+                  <td colSpan={9} style={{ textAlign: 'center', padding: '32px' }}>
                     {viewArchived ? 'Aucune commande archivée.' : 'Aucune commande pour le moment.'}
                   </td>
                 </tr>

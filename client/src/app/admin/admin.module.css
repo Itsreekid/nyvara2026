@@ -246,6 +246,17 @@
   min-width: 560px;
 }
 
+/* Mobile: hide low-priority columns */
+.hideMobile {
+  display: table-cell;
+}
+
+@media (max-width: 640px) {
+  .hideMobile {
+    display: none;
+  }
+}
+
 .table th {
   text-align: left;
   padding: 16px 24px;
@@ -306,18 +317,18 @@
   }
   
   .table {
-    min-width: 720px;
+    min-width: 480px;
   }
   
   .table th,
   .table td {
-    padding: 10px 12px;
+    padding: 8px 10px;
     font-size: 11px;
   }
   
   .table th {
     font-size: 9px;
-    white-space: normal;
+    white-space: nowrap;
   }
 }
 
