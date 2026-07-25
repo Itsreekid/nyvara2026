@@ -64,10 +64,12 @@ function resolveCallStatus(rawCosmosStatus: string, currentCallStatus: string | 
 export async function POST(req: NextRequest) {
   try {
     // ── Step A: Fetch records + select last_synced_at ─────────────────────────
-    const { data: ordersWithBarcodes, error: fetchErr } = await supabaseAdmin
+    const { data: rawOrders, error: fetchErr } = await supabaseAdmin
       .from('orders')
       .select('id, cosmos_barcode, call_status, cosmos_status, last_synced_at')
       .not('cosmos_barcode', 'is', null);
+
+    const ordersWithBarcodes = rawOrders as { id: string; cosmos_barcode: string | null; call_status: string | null; cosmos_status: string | null; last_synced_at: string | null }[] | null;
 
     if (fetchErr) throw fetchErr;
 

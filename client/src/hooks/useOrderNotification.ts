@@ -74,7 +74,7 @@ export function useOrderNotification({ onNewOrder }: UseOrderNotificationOptions
       .order('created_at', { ascending: false })
       .limit(1000)
       .then(({ data }) => {
-        if (data) data.forEach(o => seenIds.current.add(o.id));
+        if (data) data.forEach((o: { id: string }) => seenIds.current.add(o.id));
         initialized.current = true;
       });
 

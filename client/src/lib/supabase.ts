@@ -14,7 +14,7 @@ export const isSupabaseConfigured =
   supabaseAnonKey.length > 0 &&
   !supabaseAnonKey.includes('placeholder');
 
-type GenericTable = { Row: any; Insert: any; Update: any; };
+type GenericTable = { Row: Record<string, any>; Insert: Record<string, any>; Update: Record<string, any>; };
 type Database = {
   public: {
     Tables: {

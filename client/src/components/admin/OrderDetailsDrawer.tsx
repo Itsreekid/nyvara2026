@@ -161,7 +161,7 @@ export default function OrderDetailsDrawer({
       const newTotal = editableItems.reduce((s, i) => s + i.custom_price * i.quantity, 0);
 
       if (mode === 'create') {
-        const { data: newOrder, error: createError } = await supabase
+        const { data: rawNewOrder, error: createError } = await supabase
           .from('orders')
           .insert({
             ...formData,
@@ -171,6 +171,7 @@ export default function OrderDetailsDrawer({
           } as never)
           .select()
           .single();
+        const newOrder = rawNewOrder as unknown as { id: string };
         if (createError) throw createError;
 
         if (editableItems.length > 0) {

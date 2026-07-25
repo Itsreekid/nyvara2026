@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             device_id,
             product_id,
             created_at: new Date().toISOString(),
-          },
+          } as never,
           { onConflict: 'device_id,product_id' }
         );
 

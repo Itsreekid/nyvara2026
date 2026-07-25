@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder-project.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key';
 
-type GenericTable = { Row: any; Insert: any; Update: any; };
+type GenericTable = { Row: Record<string, any>; Insert: Record<string, any>; Update: Record<string, any>; };
 type Database = {
   public: {
     Tables: {

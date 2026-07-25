@@ -158,7 +158,7 @@ export default function AdminOrdersPage() {
       };
 
       const phonesToQuery = new Set<string>();
-      data.forEach((o: any) => {
+      data.forEach((o: Partial<Order>) => {
         if (o.phone) {
           const norm = normalizePhone(o.phone);
           if (norm) {
@@ -179,7 +179,7 @@ export default function AdminOrdersPage() {
         
         const phoneData: Record<string, { count: number; hasDelivered: boolean; hasReturned: boolean }> = {};
         if (allPhoneOrders) {
-          for (const row of allPhoneOrders) {
+          for (const row of allPhoneOrders as { phone?: string | null; call_status?: string | null }[]) {
             if (row.phone) {
               const norm = normalizePhone(row.phone);
               if (!norm) continue;
@@ -194,7 +194,7 @@ export default function AdminOrdersPage() {
           }
         }
         
-        const enrichedData = data.map(order => {
+        const enrichedData = data.map((order: Order) => {
           const norm = normalizePhone(order.phone);
           return {
             ...order,

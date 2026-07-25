@@ -40,12 +40,13 @@ export function useCreateOrder() {
     try {
       // 1. Calculate total from Supabase (price authoritative on server)
       const productIds = payload.items.map(i => i.product_id);
-      const { data: products, error: prodErr } = await supabase
+      const { data: rawProducts, error: prodErr } = await supabase
         .from('products')
         .select('id, price, discount, quantity_breaks, stock, allow_unlimited_stock')
         .in('id', productIds);
 
       if (prodErr) throw prodErr;
+      const products = rawProducts as { id: string; price: number | null; discount: number | null; quantity_breaks: any; stock: number | null; allow_unlimited_stock: boolean | null }[] | null;
 
       // Map to store calculated unit price per item (takes quantity breaks into account)
       const productTotals: Record<string, number> = {};
@@ -67,7 +68,7 @@ export function useCreateOrder() {
           return { id: i.product_id, price: applicableBreak.total_price / totalQty };
         } else {
           const hasDiscount = p.discount != null && p.discount > 0;
-          const finalPrice = hasDiscount ? Math.round((p.price ?? 0) * (1 - p.discount / 100)) : (p.price ?? 0);
+          const finalPrice = hasDiscount ? Math.round((p.price ?? 0) * (1 - (p.discount || 0) / 100)) : (p.price ?? 0);
           return { id: i.product_id, price: finalPrice };
         }
       });
@@ -78,7 +79,7 @@ export function useCreateOrder() {
       );
 
       // 2. Insert order
-      const { data: order, error: orderErr } = await supabase
+      const { data: rawOrder, error: orderErr } = await supabase
         .from('orders')
         .insert({
           customer_name:  payload.customer_name,
@@ -94,6 +95,7 @@ export function useCreateOrder() {
         .single();
 
       if (orderErr) throw orderErr;
+      const order = rawOrder as { id: string };
 
       // 3. Insert order items
       const orderItems = payload.items.map((i, idx) => ({
