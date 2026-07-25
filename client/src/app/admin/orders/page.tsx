@@ -114,7 +114,7 @@ export default function AdminOrdersPage() {
           cosmos_label_pdf_url: delivery.labelPdfUrl,
           cosmos_status:       delivery.status || 'to-be-picked',
           call_status:         'confirmed',   // Set business state to confirmed on first dispatch to Cosmos
-        }).eq('id', order.id);
+        } as never).eq('id', order.id);
         await fetchOrders();
       } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
     } catch (err: any) { alert('Erreur: ' + err.message); }
@@ -123,7 +123,7 @@ export default function AdminOrdersPage() {
 
   // ── Update call status ────────────────────────────────────────────────────
   const updateCallStatus = async (orderId: string, newStatus: string) => {
-    await supabase.from('orders').update({ call_status: newStatus }).eq('id', orderId);
+    await supabase.from('orders').update({ call_status: newStatus } as never).eq('id', orderId);
     setOrders(prev =>
       prev.map(o => o.id === orderId ? { ...o, call_status: newStatus } : o)
     );
@@ -158,7 +158,7 @@ export default function AdminOrdersPage() {
       };
 
       const phonesToQuery = new Set<string>();
-      data.forEach(o => {
+      data.forEach((o: any) => {
         if (o.phone) {
           const norm = normalizePhone(o.phone);
           if (norm) {
@@ -275,7 +275,7 @@ export default function AdminOrdersPage() {
 
     await supabase
       .from('orders')
-      .update({ archived: !viewArchived })
+      .update({ archived: !viewArchived } as never)
       .in('id', ids);
 
     await fetchOrders();

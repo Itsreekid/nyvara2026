@@ -89,7 +89,7 @@ export function useCreateOrder() {
           country:        payload.country,
           address:        payload.address,
           total_price,
-        })
+        } as never)
         .select()
         .single();
 
@@ -108,7 +108,7 @@ export function useCreateOrder() {
 
       const { error: itemsErr } = await supabase
         .from('order_items')
-        .insert(orderItems);
+        .insert(orderItems as never);
 
       if (itemsErr) {
         console.error('[createOrder] Failed to insert order items:', itemsErr);

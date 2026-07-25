@@ -171,8 +171,8 @@ export default function AdminProductsPage() {
     };
 
     const { error } = editingProduct
-      ? await supabase.from('products').update(payload).eq('id', editingProduct.id)
-      : await supabase.from('products').insert([payload]);
+      ? await supabase.from('products').update(payload as never).eq('id', editingProduct.id)
+      : await supabase.from('products').insert([payload as never]);
 
     setSubmitting(false);
     if (!error) {
@@ -203,7 +203,7 @@ export default function AdminProductsPage() {
       const nextOrder = galleryImages.length;
       const { data: img, error: dbErr } = await supabase
         .from('product_images')
-        .insert({ product_id: editingProduct.id, image_url: publicUrl, sort_order: nextOrder })
+        .insert({ product_id: editingProduct.id, image_url: publicUrl, sort_order: nextOrder } as never)
         .select()
         .single();
       if (dbErr) throw dbErr;

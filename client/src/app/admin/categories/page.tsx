@@ -28,7 +28,7 @@ export default function AdminCategoriesPage() {
     e.preventDefault();
     if (!newName.trim()) return;
     setAdding(true);
-    const { error } = await supabase.from('categories').insert([{ name: newName.trim() }]);
+    const { error } = await supabase.from('categories').insert([{ name: newName.trim() }] as never);
     setAdding(false);
     if (!error) { setNewName(''); fetchCategories(); }
     else alert('Erreur: ' + error.message);
@@ -36,7 +36,7 @@ export default function AdminCategoriesPage() {
 
   const handleRename = async (id: string) => {
     if (!editName.trim()) return;
-    const { error } = await supabase.from('categories').update({ name: editName.trim() }).eq('id', id);
+    const { error } = await supabase.from('categories').update({ name: editName.trim() } as never).eq('id', id);
     if (!error) { setEditId(null); setEditName(''); fetchCategories(); }
     else alert('Erreur: ' + error.message);
   };

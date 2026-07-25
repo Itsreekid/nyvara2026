@@ -14,12 +14,24 @@ export const isSupabaseConfigured =
   supabaseAnonKey.length > 0 &&
   !supabaseAnonKey.includes('placeholder');
 
-// ── Dev HMR-safe singleton ────────────────────────────────────────────────
-// createClient allocates GoTrue session state + internal caches.
-// Re-creating it on every HMR reload leaks memory fast.
-const _g = globalThis as typeof globalThis & { __nyvara_supabase?: ReturnType<typeof createClient> };
+type GenericTable = { Row: any; Insert: any; Update: any; };
+type Database = {
+  public: {
+    Tables: {
+      categories: GenericTable;
+      orders: GenericTable;
+      order_items: GenericTable;
+      products: GenericTable;
+      product_images: GenericTable;
+      admin_users: GenericTable;
+      [key: string]: GenericTable;
+    }
+  }
+};
+
+const _g = globalThis as typeof globalThis & { __nyvara_supabase?: ReturnType<typeof createClient<Database>> };
 if (!_g.__nyvara_supabase) {
-  _g.__nyvara_supabase = createClient(supabaseUrl || 'https://x.supabase.co', supabaseAnonKey || 'x');
+  _g.__nyvara_supabase = createClient<Database>(supabaseUrl || 'https://x.supabase.co', supabaseAnonKey || 'x');
 }
-export const supabase = _g.__nyvara_supabase;
+export const supabase = _g.__nyvara_supabase!;
 

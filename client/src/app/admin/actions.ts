@@ -13,11 +13,13 @@ export async function loginAction(formData: FormData) {
     return { error: 'Veuillez remplir tous les champs.' };
   }
 
-  const { data: user } = await supabaseAdmin
+  const { data } = await supabaseAdmin
     .from('admin_users')
     .select('id, password_hash, role, full_name')
     .eq('username', username)
     .single();
+
+  const user: any = data;
 
   if (!user) return { error: 'Identifiants incorrects.' };
 
@@ -68,7 +70,7 @@ export async function addEmployeeAction(formData: FormData) {
 
   const { error } = await supabaseAdmin.from('admin_users').insert({
     username, password_hash: hash, role, full_name,
-  });
+  } as never);
 
   if (error) {
     if (error.code === '23505') return { error: "Ce nom d'utilisateur est déjà pris." };

@@ -168,7 +168,7 @@ export default function OrderDetailsDrawer({
             total_price: newTotal,
             call_status: order.call_status ?? 'pending',
             cosmos_status: 'pending',
-          })
+          } as never)
           .select()
           .single();
         if (createError) throw createError;
@@ -183,7 +183,7 @@ export default function OrderDetailsDrawer({
             selected_color_hex1: item.selected_color_hex1 ?? null,
             selected_color_hex2: item.selected_color_hex2 ?? null,
           }));
-          const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
+          const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert as never);
           if (itemsError) throw itemsError;
         }
       } else {
@@ -204,7 +204,7 @@ export default function OrderDetailsDrawer({
               selected_color_name: item.selected_color_name ?? null,
               selected_color_hex1: item.selected_color_hex1 ?? null,
               selected_color_hex2: item.selected_color_hex2 ?? null,
-            });
+            } as never);
             if (error) throw error;
           } else {
             const { error } = await supabase
@@ -215,7 +215,7 @@ export default function OrderDetailsDrawer({
                 selected_color_name:  item.selected_color_name ?? null,
                 selected_color_hex1:  item.selected_color_hex1 ?? null,
                 selected_color_hex2:  item.selected_color_hex2 ?? null,
-              })
+              } as never)
               .eq('id', item.id)
               .select();
             if (error) throw error;
@@ -224,7 +224,7 @@ export default function OrderDetailsDrawer({
 
         const { error } = await supabase
           .from('orders')
-          .update({ ...formData, total_price: newTotal })
+          .update({ ...formData, total_price: newTotal } as never)
           .eq('id', order.id)
           .select();
         if (error) throw error;
@@ -600,6 +600,7 @@ export default function OrderDetailsDrawer({
                       <select 
                         className={styles.selectInput}
                         style={{ width: '100%', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px dashed rgba(255,255,255,0.2)', cursor: 'pointer' }}
+                        defaultValue=""
                         onChange={e => {
                           const p = products.find(x => x.id === e.target.value);
                           if (p) {
@@ -614,7 +615,7 @@ export default function OrderDetailsDrawer({
                           e.target.value = "";
                         }}
                       >
-                        <option value="" disabled selected>+ Ajouter un produit...</option>
+                        <option value="" disabled>+ Ajouter un produit...</option>
                         {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
                       </select>
                     </td>

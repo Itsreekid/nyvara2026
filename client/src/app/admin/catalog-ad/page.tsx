@@ -45,7 +45,7 @@ async function fetchGalleryByProduct(productIds: string[]): Promise<Record<strin
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []).reduce<Record<string, string[]>>((acc, row) => {
+  return (data ?? []).reduce<Record<string, string[]>>((acc, row: any) => {
     if (!acc[row.product_id]) acc[row.product_id] = [];
     acc[row.product_id].push(row.image_url);
     return acc;

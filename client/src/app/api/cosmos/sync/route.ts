@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
             cosmos_status: rawCosmosStatus,
             call_status: newCallStatus,
             last_synced_at: currentISOTime, // Reset cooldown clock
-          })
+          } as never)
           .eq('id', entry.id);
       })
       .filter(Boolean);
