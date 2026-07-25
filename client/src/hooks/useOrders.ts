@@ -42,7 +42,7 @@ export function useCreateOrder() {
       const productIds = payload.items.map(i => i.product_id);
       const { data: products, error: prodErr } = await supabase
         .from('products')
-        .select('id, price, discount, quantity_breaks')
+        .select('id, price, discount, quantity_breaks, stock, allow_unlimited_stock')
         .in('id', productIds);
 
       if (prodErr) throw prodErr;

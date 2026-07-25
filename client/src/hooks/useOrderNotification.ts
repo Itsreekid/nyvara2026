@@ -66,10 +66,13 @@ export function useOrderNotification({ onNewOrder }: UseOrderNotificationOptions
   }, [onNewOrder]);
 
   useEffect(() => {
-    // 1. Load existing order IDs to mark them as "seen" (no notification for old orders)
+    // 1. Load recent order IDs to mark them as "seen" (no notification for old orders).
+    //    Limit to 1000 — we only need to know about recent orders, not every ID ever.
     supabase
       .from('orders')
       .select('id')
+      .order('created_at', { ascending: false })
+      .limit(1000)
       .then(({ data }) => {
         if (data) data.forEach(o => seenIds.current.add(o.id));
         initialized.current = true;

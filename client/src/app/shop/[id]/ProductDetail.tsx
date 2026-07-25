@@ -77,7 +77,8 @@ export default function ProductDetail({ product, gallery, related }: Props) {
     ? Math.round(product.price * (1 - product.discount! / 100))
     : null;
 
-  const inStockBool = product.stock != null && product.stock > 0;
+  const isOutOfStock = product.is_active === false || ((product.stock ?? 0) <= 0 && product.allow_unlimited_stock !== true);
+  const inStockBool = !isOutOfStock;
 
   // Parse features (newline-separated)
   const featuresList = product.features
@@ -293,7 +294,8 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                   {product.color_options.map(co => (
                     <button
                       key={co.id}
-                      className={`${styles.colorCircle} ${selectedColors[0]?.id === co.id ? styles.colorCircleActive : ''}`}
+                      disabled={co.isAvailable === false}
+                      className={`${styles.colorCircle} ${selectedColors[0]?.id === co.id ? styles.colorCircleActive : ''} ${co.isAvailable === false ? styles.colorDisabled : ''}`}
                       onClick={() => {
                         if (selectedColors[0]?.id === co.id) return;
                         const newColors = [co];
@@ -343,7 +345,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
             {/* Stock */}
             <p className={inStockBool ? styles.inStock : styles.outOfStock}>
-              {inStockBool ? `✓ En stock` : '✗ Rupture de stock'}
+              {inStockBool ? `✓ En stock` : (product.is_active === false ? '✗ Indisponible' : '✗ Rupture de stock')}
             </p>
 
             {/* Quantity Breaks (Offres de quantité) */}
@@ -391,7 +393,8 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                                     <button
                                       key={co.id}
                                       type="button"
-                                      className={`${styles.colorCircleSmall} ${selectedColors[uIdx]?.id === co.id ? styles.colorCircleSmallActive : ''}`}
+                                      disabled={co.isAvailable === false}
+                                      className={`${styles.colorCircleSmall} ${selectedColors[uIdx]?.id === co.id ? styles.colorCircleSmallActive : ''} ${co.isAvailable === false ? styles.colorDisabled : ''}`}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         if (selectedColors[uIdx]?.id === co.id) return;

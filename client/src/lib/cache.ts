@@ -122,8 +122,14 @@ class CacheManager {
   }
 }
 
-// Singleton instance
-export const cacheManager = new CacheManager();
+// ── Dev HMR-safe singleton ────────────────────────────────────────────────
+// Without this, Next.js creates a NEW CacheManager (and a NEW setInterval)
+// on every hot-reload. Old instances are never GC'd → memory/CPU spiral.
+const _global = globalThis as typeof globalThis & { __nyvaraCacheManager?: CacheManager };
+if (!_global.__nyvaraCacheManager) {
+  _global.__nyvaraCacheManager = new CacheManager();
+}
+export const cacheManager = _global.__nyvaraCacheManager;
 
 /**
  * Helper to cache async operations

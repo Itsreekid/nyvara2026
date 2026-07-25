@@ -29,12 +29,15 @@ type FormState = {
   features: string;
   rating: string;
   review_count: string;
+  is_active: boolean;
+  allow_unlimited_stock: boolean;
 };
 
 const emptyForm: FormState = {
   title: '', price: '', cost_price: '', stock: '0', discount: '', final_price: '',
   description: '', image_url: '', gender: 'unisex', category_id: '',
   badge: '', features: '', rating: '', review_count: '',
+  is_active: true, allow_unlimited_stock: false,
 };
 
 interface SpecRow { key: string; value: string; }
@@ -68,7 +71,7 @@ export default function AdminProductsPage() {
   const fetchAll = () => {
     setLoading(true);
     Promise.all([
-      supabase.from('products').select('*, categories(*)').order('created_at', { ascending: false }),
+      supabase.from('products').select('*, categories(*)').order('created_at', { ascending: false }).limit(200),
       supabase.from('categories').select('*').order('name'),
     ]).then(([{ data: prods }, { data: cats }]) => {
       if (prods) setProducts(prods as Product[]);
@@ -108,6 +111,8 @@ export default function AdminProductsPage() {
       features:     p.features     ?? '',
       rating:       p.rating       != null ? String(p.rating)      : '',
       review_count: p.review_count != null ? String(p.review_count): '',
+      is_active:    p.is_active ?? true,
+      allow_unlimited_stock: p.allow_unlimited_stock ?? false,
     });
     // Specs rows
     const specs = (p.specs ?? {}) as Record<string, string>;
@@ -161,6 +166,8 @@ export default function AdminProductsPage() {
       specs:        Object.keys(specsObj).length > 0 ? specsObj : null,
       color_options: colorOptions.length > 0 ? colorOptions : null,
       quantity_breaks: quantityBreaks.length > 0 ? quantityBreaks : null,
+      is_active:    formData.is_active,
+      allow_unlimited_stock: formData.allow_unlimited_stock,
     };
 
     const { error } = editingProduct
@@ -373,6 +380,41 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
+          <div className={styles.priceRow}>
+            <div className={styles.inputGroup} style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+              <label style={{ margin: 0 }}>Statut du produit :</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                  />
+                  <span className={`${styles.slider} ${styles.sliderStatus}`}></span>
+                </label>
+                <span style={{ color: formData.is_active ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 600 }}>
+                  {formData.is_active ? 'Actif' : 'Inactif (Rupture)'}
+                </span>
+              </div>
+            </div>
+            <div className={styles.inputGroup} style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
+              <label style={{ margin: 0 }}>Gestion du stock :</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={formData.allow_unlimited_stock}
+                    onChange={(e) => setFormData(prev => ({ ...prev, allow_unlimited_stock: e.target.checked }))}
+                  />
+                  <span className={styles.slider}></span>
+                </label>
+                <span style={{ fontSize: '0.95rem' }}>
+                  {formData.allow_unlimited_stock ? 'Stock Illimité (Dépot)' : 'Stock Limité (Auto-décrément)'}
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* Main image */}
           <div className={styles.inputGroup}>
             <label>Image principale</label>
@@ -468,6 +510,21 @@ export default function AdminProductsPage() {
                   </div>
                   <div className={styles.colorOptionDetails}>
                     <input className={styles.input} placeholder="Nom (ex: Noir / Bleu)" value={co.name} onChange={e => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, name: e.target.value } : c))} />
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', marginBottom: '4px', fontSize: '0.9rem' }}>
+                      <label className={styles.switch}>
+                        <input
+                          type="checkbox"
+                          checked={co.isAvailable !== false}
+                          onChange={(e) => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, isAvailable: e.target.checked } : c))}
+                        />
+                        <span className={`${styles.slider} ${styles.sliderStatus}`}></span>
+                      </label>
+                      <span style={{ color: co.isAvailable !== false ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 600 }}>
+                        {co.isAvailable !== false ? 'Actif' : 'Inactif'}
+                      </span>
+                    </div>
+
                     <div className={styles.colorPickers}>
                       <div className={styles.pickerWrap}>
                         <label className={styles.pickerLabel}>Couleur 1</label>

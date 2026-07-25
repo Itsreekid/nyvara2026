@@ -35,8 +35,11 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     ? Math.round(product.price * (1 - product.discount! / 100))
     : null;
 
+  const isOutOfStock = product.is_active === false || ((product.stock ?? 0) <= 0 && product.allow_unlimited_stock !== true);
+
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // prevent navigation when clicking Add to Cart
+    if (isOutOfStock) return;
     addItem(product);
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
@@ -68,10 +71,13 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   };
 
   return (
-    <Link href={`/shop/${product.id}`} style={{ textDecoration: 'none' }}>
-      <article className={styles.card} aria-label={product.title ?? 'Product'}>
+    <Link href={`/shop/${product.id}`} style={{ textDecoration: 'none', pointerEvents: isOutOfStock ? 'none' : 'auto' }}>
+      <article className={`${styles.card} ${isOutOfStock ? styles.outOfStockCard : ''}`} aria-label={product.title ?? 'Product'}>
         {/* Image */}
         <div className={styles.imageWrap}>
+          {isOutOfStock && (
+            <div className={styles.outOfStockBadge}>Rupture de stock</div>
+          )}
           {product.image_url ? (
             <Image
               src={product.image_url}
@@ -139,6 +145,8 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
               className={`${styles.addBtn} ${inCart ? styles.inCart : ''}`}
               onClick={handleAddToCart}
               aria-label={inCart ? 'Added to cart' : 'Add to cart'}
+              disabled={isOutOfStock}
+              style={{ opacity: isOutOfStock ? 0.5 : 1, cursor: isOutOfStock ? 'not-allowed' : 'pointer' }}
             >
               <ShoppingBag size={14} />
               <span>{inCart ? 'Added' : 'Add to Cart'}</span>

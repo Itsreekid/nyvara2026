@@ -85,6 +85,32 @@
   pointer-events: none;
 }
 
+.outOfStockBadge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #FF0000;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 8px 16px;
+  border-radius: 50px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(255, 0, 0, 0.4);
+}
+
+.outOfStockCard .image,
+.outOfStockCard .imagePlaceholder {
+  opacity: 0.6;
+  filter: grayscale(80%) blur(1px);
+}
+
+
 /* ─── Info ────────────────────────────────────────── */
 .info {
   padding: 16px 18px;

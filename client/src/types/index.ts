@@ -20,6 +20,7 @@ export interface ColorOption {
   hex2?: string | null;
   image_url: string;
   image_url2?: string | null;
+  isAvailable?: boolean;
 }
 
 export interface Product {
@@ -44,6 +45,8 @@ export interface Product {
   google_product_category: string | null;
   color_options?: ColorOption[] | null;
   quantity_breaks?: QuantityBreak[] | null;
+  is_active?: boolean;
+  allow_unlimited_stock?: boolean;
   // joined
   categories?: Category | null;
 }

@@ -13,6 +13,7 @@ interface DrawerProps {
   isOpen: boolean;
   onClose: () => void;
   order: OrderWithItems | null;
+  mode?: 'view' | 'create';
   onStatusChange?: (id: string, status: string) => void;
   onOrderUpdated?: () => void;
 }
@@ -44,14 +45,15 @@ function findColor(item: OrderItem): ColorOption | undefined {
 }
 
 export default function OrderDetailsDrawer({
-  isOpen, onClose, order, onStatusChange, onOrderUpdated,
+  isOpen, onClose, order, mode = 'view', onStatusChange, onOrderUpdated,
 }: DrawerProps) {
   const [isEditing, setIsEditing] = React.useState(false);
   const [isSaving, setIsSaving]   = React.useState(false);
   const [formData, setFormData]   = React.useState({
-    customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: '',
+    customer_name: '', phone: '', city: '', address: '', customer_email: '', private_note: '', country: 'TN'
   });
   const [editableItems, setEditableItems] = React.useState<EditableItem[]>([]);
+  const [products, setProducts] = React.useState<any[]>([]);
   const [openPickerId, setOpenPickerId]   = React.useState<string | null>(null);
   const pickerRef = React.useRef<HTMLDivElement>(null);
 
@@ -65,8 +67,12 @@ export default function OrderDetailsDrawer({
       setActiveTab('summary');
       setHistoryOrders([]);
       setExpandedHistoryId(null);
+    } else if (isOpen && mode === 'create' && products.length === 0) {
+      supabase.from('products').select('id, title, price, discount, image_url, color_options').order('title').then(({ data }) => {
+        if (data) setProducts(data);
+      });
     }
-  }, [isOpen]);
+  }, [isOpen, mode, products.length]);
 
   React.useEffect(() => {
     if (activeTab === 'history' && order?.phone) {
@@ -93,6 +99,7 @@ export default function OrderDetailsDrawer({
         address:        order.address        || '',
         customer_email: order.customer_email || '',
         private_note:   order.private_note   || '',
+        country:        order.country        || 'TN',
       });
       setEditableItems(
         (order.order_items ?? []).map(item => ({
@@ -100,9 +107,9 @@ export default function OrderDetailsDrawer({
           custom_price: getUnitPrice(item),
         }))
       );
-      setIsEditing(false);
+      setIsEditing(mode === 'create');
     }
-  }, [order]);
+  }, [order, mode]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
@@ -151,35 +158,77 @@ export default function OrderDetailsDrawer({
     setIsSaving(true);
     console.group('[OrderDrawer] 💾 handleSave started');
     try {
-      const originalIds = viewItems.map(i => i.id);
-      const deletedIds  = originalIds.filter(id => !editableItems.find(i => i.id === id));
-      if (deletedIds.length > 0) {
-        const { error } = await supabase.from('order_items').delete().in('id', deletedIds).select();
-        if (error) throw error;
-      }
+      const newTotal = editableItems.reduce((s, i) => s + i.custom_price * i.quantity, 0);
 
-      for (const item of editableItems) {
-        const { error } = await supabase
-          .from('order_items')
-          .update({
-            quantity:             item.quantity,
-            quantity_break_price: item.custom_price,
-            selected_color_name:  item.selected_color_name ?? null,
-            selected_color_hex1:  item.selected_color_hex1 ?? null,
-            selected_color_hex2:  item.selected_color_hex2 ?? null,
+      if (mode === 'create') {
+        const { data: newOrder, error: createError } = await supabase
+          .from('orders')
+          .insert({
+            ...formData,
+            total_price: newTotal,
+            call_status: order.call_status ?? 'pending',
+            cosmos_status: 'pending',
           })
-          .eq('id', item.id)
+          .select()
+          .single();
+        if (createError) throw createError;
+
+        if (editableItems.length > 0) {
+          const itemsToInsert = editableItems.map(item => ({
+            order_id: newOrder.id,
+            product_id: item.product_id || (item.products as any)?.id,
+            quantity: item.quantity,
+            quantity_break_price: item.custom_price,
+            selected_color_name: item.selected_color_name ?? null,
+            selected_color_hex1: item.selected_color_hex1 ?? null,
+            selected_color_hex2: item.selected_color_hex2 ?? null,
+          }));
+          const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert);
+          if (itemsError) throw itemsError;
+        }
+      } else {
+        const originalIds = viewItems.map(i => i.id);
+        const deletedIds  = originalIds.filter(id => !editableItems.find(i => i.id === id));
+        if (deletedIds.length > 0) {
+          const { error } = await supabase.from('order_items').delete().in('id', deletedIds).select();
+          if (error) throw error;
+        }
+
+        for (const item of editableItems) {
+          if (item.id.startsWith('temp_')) {
+            const { error } = await supabase.from('order_items').insert({
+              order_id: order.id,
+              product_id: item.product_id || (item.products as any)?.id,
+              quantity: item.quantity,
+              quantity_break_price: item.custom_price,
+              selected_color_name: item.selected_color_name ?? null,
+              selected_color_hex1: item.selected_color_hex1 ?? null,
+              selected_color_hex2: item.selected_color_hex2 ?? null,
+            });
+            if (error) throw error;
+          } else {
+            const { error } = await supabase
+              .from('order_items')
+              .update({
+                quantity:             item.quantity,
+                quantity_break_price: item.custom_price,
+                selected_color_name:  item.selected_color_name ?? null,
+                selected_color_hex1:  item.selected_color_hex1 ?? null,
+                selected_color_hex2:  item.selected_color_hex2 ?? null,
+              })
+              .eq('id', item.id)
+              .select();
+            if (error) throw error;
+          }
+        }
+
+        const { error } = await supabase
+          .from('orders')
+          .update({ ...formData, total_price: newTotal })
+          .eq('id', order.id)
           .select();
         if (error) throw error;
       }
-
-      const newTotal = editableItems.reduce((s, i) => s + i.custom_price * i.quantity, 0);
-      const { error } = await supabase
-        .from('orders')
-        .update({ ...formData, total_price: newTotal })
-        .eq('id', order.id)
-        .select();
-      if (error) throw error;
 
       console.groupEnd();
       setIsEditing(false);
@@ -200,7 +249,7 @@ export default function OrderDetailsDrawer({
 
         <div className={styles.header}>
           <h2 className={styles.headerTitle}>
-            {isEditing ? `Edit order #${order.id.slice(0, 8)}` : 'Order Details'}
+            {mode === 'create' ? 'Nouvelle Commande' : (isEditing ? `Edit order #${order.id.slice(0, 8)}` : 'Order Details')}
           </h2>
           <div className={styles.headerActions}>
             {isEditing ? (
@@ -212,13 +261,17 @@ export default function OrderDetailsDrawer({
                   className={styles.editBtn}
                   style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.18)' }}
                   onClick={() => {
-                    setEditableItems(
-                      viewItems.map(item => ({
-                        ...JSON.parse(JSON.stringify(item)) as OrderItem,
-                        custom_price: getUnitPrice(item),
-                      }))
-                    );
-                    setIsEditing(false);
+                    if (mode === 'create') {
+                      onClose();
+                    } else {
+                      setEditableItems(
+                        viewItems.map(item => ({
+                          ...JSON.parse(JSON.stringify(item)) as OrderItem,
+                          custom_price: getUnitPrice(item),
+                        }))
+                      );
+                      setIsEditing(false);
+                    }
                   }}
                 >
                   Cancel
@@ -236,7 +289,7 @@ export default function OrderDetailsDrawer({
         <div className={styles.content}>
           <div className={styles.gridTop}>
             <div className={styles.card}>
-              <h3 className={styles.cardTitle}>Order #{order.id.slice(0, 8)}</h3>
+              <h3 className={styles.cardTitle}>{mode === 'create' ? 'Nouvelle Commande' : `Order #${order.id.slice(0, 8)}`}</h3>
               <div className={styles.detailsList}>
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Date Added</span>
@@ -254,10 +307,14 @@ export default function OrderDetailsDrawer({
                 <div className={styles.detailRow}>
                   <span className={styles.detailLabel}>Status</span>
                   <span className={styles.detailValue}>
-                    <StatusDropdown
-                      value={order.call_status ?? 'pending'}
-                      onChange={s => onStatusChange?.(order.id, s)}
-                    />
+                    {mode === 'create' ? (
+                      <span className={styles.detailValue}>En attente</span>
+                    ) : (
+                      <StatusDropdown
+                        value={order.call_status ?? 'pending'}
+                        onChange={s => onStatusChange?.(order.id, s)}
+                      />
+                    )}
                   </span>
                 </div>
                 {(isEditing || formData.private_note) && (
@@ -536,6 +593,33 @@ export default function OrderDetailsDrawer({
                     </tr>
                   );
                 })}
+
+                {isEditing && (
+                  <tr className={styles.tableRow}>
+                    <td colSpan={6} style={{ padding: '8px 16px' }}>
+                      <select 
+                        className={styles.selectInput}
+                        style={{ width: '100%', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px dashed rgba(255,255,255,0.2)', cursor: 'pointer' }}
+                        onChange={e => {
+                          const p = products.find(x => x.id === e.target.value);
+                          if (p) {
+                            setEditableItems(prev => [...prev, {
+                              id: `temp_${Math.random()}`,
+                              product_id: p.id,
+                              quantity: 1,
+                              custom_price: p.price,
+                              products: p,
+                            } as unknown as EditableItem]);
+                          }
+                          e.target.value = "";
+                        }}
+                      >
+                        <option value="" disabled selected>+ Ajouter un produit...</option>
+                        {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                )}
 
                 <tr className={styles.totalsRow}>
                   <td colSpan={isEditing ? 5 : 4}>Sub-total</td>

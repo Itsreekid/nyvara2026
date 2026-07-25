@@ -11,18 +11,13 @@ const nextConfig: NextConfig = {
         pathname: '/storage/v1/object/public/**',
       },
       {
-        protocol: 'https',
-        hostname: 'assets.nyvara.com',
-        pathname: '/products/**',
-            },
-            {
         // Cloudflare R2 public development URL
         protocol: 'https',
         hostname: 'pub-96ecbfcde03642529999eddf062d31f5.r2.dev',
         pathname: '/**',
       },
       {
-        // Cloudflare R2 custom domain (production)
+        // Cloudflare R2 / CDN custom domain (production)
         protocol: 'https',
         hostname: 'assets.nyvara.com',
         pathname: '/**',
@@ -32,6 +27,9 @@ const nextConfig: NextConfig = {
     formats: ['image/avif', 'image/webp'], // Modern formats
     deviceSizes: [320, 420, 640, 768, 1024, 1280, 1536],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // Cache optimized images for 1 hour in dev — prevents hammering R2
+    // on every request and stops the timeout/retry CPU loop.
+    minimumCacheTTL: 3600,
   },
 
   experimental: {
@@ -91,18 +89,7 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Redirects and rewrites
-  async rewrites() {
-    return {
-      beforeFiles: [
-        // Cache-friendly API routing
-        {
-          source: '/api/:path*',
-          destination: '/api/:path*',
-        },
-      ],
-    };
-  },
+  // No rewrites needed — removed no-op /api/* → /api/* rule that added overhead
 };
 
 export default nextConfig;

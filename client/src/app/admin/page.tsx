@@ -56,10 +56,13 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
+    // Limit to last 500 orders — fetching all rows with nested joins
+    // on every mount is a major CPU/RAM bottleneck.
     supabase
       .from('orders')
       .select(`*, order_items ( quantity, products ( cost_price ) )`)
       .order('created_at', { ascending: false })
+      .limit(500)
       .then(({ data }) => {
         if (data) setOrders(data as OrderWithItems[]);
         setLoading(false);

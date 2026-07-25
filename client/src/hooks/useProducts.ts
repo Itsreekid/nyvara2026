@@ -23,8 +23,8 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
     setError(null);
 
     try {
-      // Pagination support
-      const pageSize = (filters as any)?.pageSize || 999999;
+      // Pagination support — default to 100 rows max, never request unbounded data
+      const pageSize = (filters as any)?.pageSize || 100;
       const page = (filters as any)?.page || 0;
       const offset = page * pageSize;
 

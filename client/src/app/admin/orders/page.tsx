@@ -42,6 +42,8 @@ export interface OrderWithItems extends Order {
   archived: boolean;
   call_status: string;
   customer_order_count?: number;
+  customer_has_delivered?: boolean;
+  customer_has_returned?: boolean;
 }
 
 export default function AdminOrdersPage() {
@@ -60,6 +62,8 @@ export default function AdminOrdersPage() {
 
   // Items modal
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
   // Sync selected order with latest data from table
   useEffect(() => {
@@ -145,26 +149,60 @@ export default function AdminOrdersPage() {
       .range(from, to);
 
     if (data && data.length > 0) {
-      const phones = Array.from(new Set(data.map(o => o.phone).filter(Boolean)));
+      const normalizePhone = (p: string | null | undefined) => {
+        if (!p) return '';
+        let num = p.replace(/[^\d+]/g, '');
+        if (num.startsWith('+216')) return num.slice(4);
+        if (num.startsWith('00216')) return num.slice(5);
+        return num;
+      };
+
+      const phonesToQuery = new Set<string>();
+      data.forEach(o => {
+        if (o.phone) {
+          const norm = normalizePhone(o.phone);
+          if (norm) {
+            phonesToQuery.add(norm);
+            phonesToQuery.add(`+216${norm}`);
+            phonesToQuery.add(`00216${norm}`);
+          }
+        }
+      });
+      const phones = Array.from(phonesToQuery);
+
       if (phones.length > 0) {
         const { data: allPhoneOrders } = await supabase
           .from('orders')
-          .select('phone')
-          .in('phone', phones);
+          .select('phone, call_status')
+          .in('phone', phones)
+          .eq('archived', false);
         
-        const phoneCounts: Record<string, number> = {};
+        const phoneData: Record<string, { count: number; hasDelivered: boolean; hasReturned: boolean }> = {};
         if (allPhoneOrders) {
           for (const row of allPhoneOrders) {
             if (row.phone) {
-              phoneCounts[row.phone] = (phoneCounts[row.phone] || 0) + 1;
+              const norm = normalizePhone(row.phone);
+              if (!norm) continue;
+              if (!phoneData[norm]) {
+                phoneData[norm] = { count: 0, hasDelivered: false, hasReturned: false };
+              }
+              phoneData[norm].count += 1;
+              const status = row.call_status;
+              if (status === 'delivered') phoneData[norm].hasDelivered = true;
+              if (status === 'returned') phoneData[norm].hasReturned = true;
             }
           }
         }
         
-        const enrichedData = data.map(order => ({
-          ...order,
-          customer_order_count: phoneCounts[order.phone as string] || 1,
-        }));
+        const enrichedData = data.map(order => {
+          const norm = normalizePhone(order.phone);
+          return {
+            ...order,
+            customer_order_count: norm ? (phoneData[norm]?.count || 1) : 1,
+            customer_has_delivered: norm ? (phoneData[norm]?.hasDelivered || false) : false,
+            customer_has_returned: norm ? (phoneData[norm]?.hasReturned || false) : false,
+          };
+        });
         
         setOrders(enrichedData as OrderWithItems[]);
         ordersRef.current = enrichedData as OrderWithItems[];
@@ -271,9 +309,14 @@ export default function AdminOrdersPage() {
             </span>
           )}
           {!viewArchived && (
-            <button className={styles.syncBtn} onClick={() => syncDeliveryStatus(false)} disabled={syncing}>
-              {syncing ? '⟳ Synchronisation...' : '⟳ Actualiser maintenant'}
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className={styles.syncBtn} onClick={() => syncDeliveryStatus(false)} disabled={syncing}>
+                {syncing ? '⟳ Synchronisation...' : '⟳ Actualiser maintenant'}
+              </button>
+              <button className={styles.addBtn} onClick={() => setIsCreateDrawerOpen(true)}>
+                + Ajouter une commande
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -389,7 +432,7 @@ export default function AdminOrdersPage() {
                       />
                     </td>
                     <td>
-                      <button className={styles.itemsBtn} onClick={() => setSelectedOrder(order)}>
+                      <button className={styles.itemsBtn} onClick={() => { setSelectedOrder(order); setIsDrawerOpen(true); }}>
                         <ShoppingBag size={14} />
                         <span>{itemCount} article{itemCount !== 1 ? 's' : ''}</span>
                       </button>
@@ -397,11 +440,19 @@ export default function AdminOrdersPage() {
                     <td style={{ whiteSpace: 'nowrap' }}>{order.total_price?.toFixed(3)} TND</td>
 
                     <td>
-                      {order.customer_order_count && order.customer_order_count > 1 ? (
-                        <span className={`${styles.badge} ${styles.badgeLoyal}`} style={{ whiteSpace: 'nowrap' }}>Client fidèle</span>
-                      ) : (
-                        <span className={`${styles.badge} ${styles.badgeNew}`} style={{ whiteSpace: 'nowrap' }}>Nouveau client</span>
-                      )}
+                      {(() => {
+                        const count = order.customer_order_count || 1;
+                        if (order.customer_has_returned) {
+                          return <span className={`${styles.badge} ${styles.badgeDanger}`} style={{ whiteSpace: 'nowrap' }}>Client non sérieux</span>;
+                        }
+                        if (order.customer_has_delivered) {
+                          return <span className={`${styles.badge} ${styles.badgeLoyal}`} style={{ whiteSpace: 'nowrap' }}>Client fidèle</span>;
+                        }
+                        if (count > 1) {
+                          return <span className={`${styles.badge} ${styles.badgeWarning}`} style={{ whiteSpace: 'nowrap' }}>Client régulier</span>;
+                        }
+                        return <span className={`${styles.badge} ${styles.badgeNew}`} style={{ whiteSpace: 'nowrap' }}>Nouveau client</span>;
+                      })()}
                     </td>
                     <td>
                       <div className={styles.actionBtns}>
@@ -416,7 +467,7 @@ export default function AdminOrdersPage() {
                         </button>
                         <button 
                           className={styles.eyeBtn} 
-                          onClick={() => setSelectedOrder(order)}
+                          onClick={() => { setSelectedOrder(order); setIsDrawerOpen(true); }}
                           title="Voir les détails"
                         >
                           <Eye size={18} />
@@ -472,11 +523,39 @@ export default function AdminOrdersPage() {
 
       {/* ── Order Details Drawer ── */}
       <OrderDetailsDrawer
-        isOpen={!!selectedOrder}
-        onClose={() => setSelectedOrder(null)}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
         order={selectedOrder}
-        onStatusChange={updateCallStatus}
         onOrderUpdated={fetchOrders}
+        onStatusChange={(id, s) => {
+          updateCallStatus(id, s);
+          setSelectedOrder(prev => prev ? { ...prev, call_status: s } : null);
+        }}
+      />
+      
+      <OrderDetailsDrawer
+        isOpen={isCreateDrawerOpen}
+        onClose={() => setIsCreateDrawerOpen(false)}
+        order={{
+          id: 'new',
+          created_at: new Date().toISOString(),
+          customer_name: '',
+          phone: '',
+          city: '',
+          address: '',
+          customer_email: '',
+          private_note: '',
+          country: 'Tunisie',
+          call_status: 'pending',
+          cosmos_status: 'pending',
+          total_price: 0,
+          order_items: []
+        } as unknown as OrderWithItems}
+        mode="create"
+        onOrderUpdated={() => {
+          setIsCreateDrawerOpen(false);
+          fetchOrders();
+        }}
       />
     </div>
   );

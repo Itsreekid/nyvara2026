@@ -143,6 +143,22 @@
   cursor: not-allowed;
 }
 
+.addBtn {
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--color-gold);
+  background: var(--color-gold);
+  color: #000;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.addBtn:hover {
+  opacity: 0.9;
+}
+
 /* ── Delivery Status Badges ── */
 .deliveryBadge {
   display: inline-block;
@@ -551,6 +567,18 @@
   background: rgba(50,220,100,0.15);
   color: #32dc64;
   border: 1px solid rgba(50,220,100,0.3);
+}
+
+.badgeDanger {
+  background: rgba(255,80,80,0.15);
+  color: #ff5050;
+  border: 1px solid rgba(255,80,80,0.3);
+}
+
+.badgeWarning {
+  background: rgba(255,150,50,0.15);
+  color: #ff9632;
+  border: 1px solid rgba(255,150,50,0.3);
 }
 
 .badgeNew {
