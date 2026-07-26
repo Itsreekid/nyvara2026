@@ -27,7 +27,7 @@ export type MetaCatalogProduct = Pick<
 };
 
 export function formatMetaPrice(price: number): string {
-  return `${price.toFixed(3)} TND`;
+  return `${price.toFixed(2)} TND`;
 }
 
 export function isProductOnSale(product: {
