@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { error } = await supabaseAdmin.rpc('increment_product_stat', {
+  const { error } = await (supabaseAdmin.rpc as any)('increment_product_stat', {
     p_id: product_id,
     event_type: event,
   });

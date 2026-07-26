@@ -7,7 +7,7 @@ import type { Product, ProductFilters, SortOption } from '@/types';
 const getActualPrice = (p: Product) => {
   const hasDiscount = p.discount != null && p.discount > 0;
   if (hasDiscount && p.price != null) {
-    return Math.round(p.price * (1 - p.discount / 100));
+    return Math.round(p.price * (1 - p.discount! / 100));
   }
   return p.final_price ?? p.price ?? 0;
 };
@@ -87,8 +87,14 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
           const res = await fetch('/api/trending');
           if (res.ok) {
             const trendingData = await res.json();
-            const scoreMap = new Map(trendingData.map((t: any) => [t.product_id, t.trending_score]));
-            finalData.sort((a, b) => (scoreMap.get(b.id) || 0) - (scoreMap.get(a.id) || 0));
+            const scoreMap = new Map<string, number>(
+              trendingData.map((t: any) => [t.product_id, t.trending_score])
+            );
+            finalData.sort((a, b) => {
+              const scoreA = scoreMap.get(a.id) ?? 0;
+              const scoreB = scoreMap.get(b.id) ?? 0;
+              return scoreB - scoreA;
+            });
           }
         } catch (e) {
           console.error('Failed to load trending scores for sorting', e);

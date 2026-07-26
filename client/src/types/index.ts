@@ -123,3 +123,15 @@ export interface ProductFilters {
   max_price?: number;
   search?: string;
 }
+
+export interface TrendingProduct {
+  product_id: string;
+  title: string | null;
+  image_url: string | null;
+  stock: number | null;
+  custom_label_0: string | null;
+  views_7d: number;
+  carts_7d: number;
+  orders_7d: number;
+  trending_score: number;
+}

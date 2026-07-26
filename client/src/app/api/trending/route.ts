@@ -32,7 +32,8 @@ export async function GET() {
 
   // Aggregate totals per product_id
   const aggregated: Record<string, { views: number; carts: number; orders: number }> = {};
-  for (const row of stats) {
+  for (const r of stats) {
+    const row = r as any;
     const pid = row.product_id as string;
     if (!aggregated[pid]) aggregated[pid] = { views: 0, carts: 0, orders: 0 };
     aggregated[pid].views  += (row.views_count  as number) ?? 0;
@@ -56,7 +57,8 @@ export async function GET() {
 
   // Build ranked list
   const ranked = (products ?? [])
-    .map((p) => {
+    .map((prod) => {
+      const p = prod as any;
       const agg = aggregated[p.id as string] ?? { views: 0, carts: 0, orders: 0 };
       const trending_score =
         agg.orders * 5 + agg.carts * 2 + agg.views * 0.5;
