@@ -12,7 +12,6 @@ const SHOP_LINKS = [
   { href: '/shop?gender=unisex', label: 'Unisexe' },
 ];
 const INFO_LINKS = [
-  { href: '/forum',   label: 'Forum Communautaire' },
   { href: '/about',   label: 'À propos de Nyvara' },
   { href: '/contact', label: 'Nous contacter' },
 ];

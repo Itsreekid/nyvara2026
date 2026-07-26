@@ -10,6 +10,7 @@ interface SortBarProps {
 }
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'tendance',   label: 'Tendance' },
   { value: 'newest',     label: 'Plus récents' },
   { value: 'price_asc',  label: 'Prix croissant' },
   { value: 'price_desc', label: 'Prix décroissant' },

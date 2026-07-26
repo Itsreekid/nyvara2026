@@ -29,9 +29,7 @@ function PixelPageViewTracker() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).fbq) {
-      (window as any).fbq('track', 'PageView');
-    }
+    fireBoth('PageView', {});
   }, [pathname, searchParams]);
 
   return null;
@@ -53,8 +51,18 @@ export default function FacebookPixel() {
           t.src=v;s=b.getElementsByTagName(e)[0];
           s.parentNode.insertBefore(t,s)}(window, document,'script',
           'https://connect.facebook.net/en_US/fbevents.js');
-          fbq('init', '${PIXEL_ID}');
-          fbq('track', 'PageView');
+
+          var guestCookie = document.cookie.match(/(^|;)\\s*nyvara_guest_id\\s*=\\s*([^;]+)/);
+          var guestId = guestCookie ? guestCookie[2] : localStorage.getItem('nyvara_guest_id');
+          
+          var em = localStorage.getItem('nyvara_user_email');
+          var ph = localStorage.getItem('nyvara_user_phone');
+          
+          var am = { external_id: guestId };
+          if (em) am.em = em.toLowerCase().trim();
+          if (ph) am.ph = ph.replace(/\\D/g, '');
+
+          fbq('init', '${PIXEL_ID}', am);
         `}
       </Script>
 
@@ -86,13 +94,24 @@ export function generateEventId(): string {
 
 function fireClient(event: string, params?: Record<string, unknown>, eventId?: string) {
   if (typeof window !== 'undefined' && (window as any).fbq) {
-    (window as any).fbq('track', event, { currency: 'TND', ...params }, { eventID: eventId });
+    const guestCookie = document.cookie.match(/(^|;)\s*nyvara_guest_id\s*=\s*([^;]+)/);
+    const guestId = guestCookie ? guestCookie[2] : undefined;
+    const options: Record<string, string> = {};
+    if (eventId) options.eventID = eventId;
+    if (guestId) options.external_id = guestId;
+    
+    (window as any).fbq('track', event, { currency: 'TND', ...params }, options);
   }
 }
 
 async function fireServer(eventName: string, params: Record<string, unknown>, eventId: string) {
   if (typeof window === 'undefined') return;
   try {
+    const guestCookie = document.cookie.match(/(^|;)\s*nyvara_guest_id\s*=\s*([^;]+)/);
+    const guestId = guestCookie ? guestCookie[2] : (localStorage.getItem('nyvara_guest_id') || undefined);
+    const em = localStorage.getItem('nyvara_user_email') || undefined;
+    const ph = localStorage.getItem('nyvara_user_phone') || undefined;
+
     await fetch('/api/meta/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,6 +121,9 @@ async function fireServer(eventName: string, params: Record<string, unknown>, ev
         event_name: eventName,
         event_id: eventId,
         event_source_url: window.location.href,
+        external_id: guestId,
+        email: params.email || em,
+        phone: params.phone || ph,
       }),
     });
   } catch (err) {
@@ -109,8 +131,8 @@ async function fireServer(eventName: string, params: Record<string, unknown>, ev
   }
 }
 
-function fireBoth(eventName: string, params: Record<string, unknown>) {
-  const eventId = generateEventId();
+function fireBoth(eventName: string, params: Record<string, unknown>, customEventId?: string) {
+  const eventId = customEventId || generateEventId();
   fireClient(eventName, params, eventId);
   fireServer(eventName, params, eventId);
 }
@@ -128,12 +150,12 @@ export const fbEvent = {
   },
 
   /** Fire when user opens checkout */
-  initiateCheckout: (params: { value: number; num_items: number }) => {
-    fireBoth('InitiateCheckout', { ...params, value: Number(params.value) });
+  initiateCheckout: (params: { value: number; num_items: number; content_ids?: string[]; contents?: any[]; email?: string; phone?: string; }, eventId?: string) => {
+    fireBoth('InitiateCheckout', { ...params, value: Number(params.value) }, eventId);
   },
 
   /** Fire when user adds to wishlist */
-  addToWishlist: (params: { content_ids: string[]; content_name: string }) => {
+  addToWishlist: (params: { content_ids: string[]; content_name: string; value?: number; currency?: string }) => {
     fireBoth('AddToWishlist', { ...params });
   },
 };
@@ -164,6 +186,8 @@ export async function trackPurchase(params: PurchaseParams): Promise<void> {
 
   const eventParams = {
     value:        Number(params.value),
+    currency:     'TND',
+    order_id:     params.order_id,
     content_ids:  params.content_ids,
     contents:     params.contents,
     num_items:    params.num_items,

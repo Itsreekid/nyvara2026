@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       num_items,
       currency = 'TND',
       content_category,
+      external_id,
     } = body;
 
     // Build user data — hash all PII, send IP and UA raw
@@ -65,6 +66,7 @@ export async function POST(req: NextRequest) {
     if (last_name) userData.ln = hash(last_name);
     if (city) userData.ct = hash(city);
     if (country) userData.country = hash(country);
+    if (external_id) userData.external_id = external_id;
 
     const normalizedContents = Array.isArray(contents)
       ? contents.map((item: { id?: string; quantity?: number; item_price?: number }) => ({

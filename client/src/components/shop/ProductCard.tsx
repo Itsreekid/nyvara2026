@@ -44,8 +44,15 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
       content_name: product.title ?? 'Sunglasses',
-      value:        Number(product.final_price ?? product.price ?? 0),
+      value:        Number(discountedPrice ?? product.final_price ?? product.price ?? 0),
     });
+    // ── Trending: log add-to-cart ─────────────────────────────────────
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon(
+        '/api/tracking/stats',
+        JSON.stringify({ product_id: product.id, event: 'cart' })
+      );
+    }
   };
 
   const handleWishlist = (e: React.MouseEvent) => {
@@ -59,6 +66,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
       fbEvent.addToWishlist({
         content_ids:  [String(product.id)],
         content_name: product.title ?? 'Sunglasses',
+        value:        Number(discountedPrice ?? product.final_price ?? product.price ?? 0),
       });
     }
     window.setTimeout(() => setWishlistDisabled(false), 600);

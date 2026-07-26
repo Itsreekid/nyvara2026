@@ -2,12 +2,13 @@
 
 import { useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
-import { Suspense } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
 import FilterSidebar from '@/components/shop/FilterSidebar';
 import ProductSkeleton from '@/components/shop/ProductSkeleton';
 import SortBar       from '@/components/shop/SortBar';
 import { useProducts } from '@/hooks/useProducts';
+import { useCategories } from '@/hooks/useOrders';
 import type { ProductFilters, SortOption } from '@/types';
 import styles from './shop.module.css';
 
@@ -21,29 +22,89 @@ const ProductGrid = dynamic(() => import('@/components/shop/ProductGrid'), {
 });
 
 function ShopContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { categories } = useCategories();
+
+  const toSlug = (str: string) => str.toLowerCase().replace(/[\s_]+/g, '-').replace(/[^\w-]+/g, '');
+
   const initialGender = (searchParams.get('gender') as ProductFilters['gender']) ?? 'all';
   const initialSearch = searchParams.get('search') ?? undefined;
+  const initialMinPrice = searchParams.has('min_price') ? Number(searchParams.get('min_price')) : undefined;
+  const initialMaxPrice = searchParams.has('max_price') ? Number(searchParams.get('max_price')) : undefined;
+  const urlCategorySlug = searchParams.get('category');
+  const initialSort = (searchParams.get('sort') as SortOption) ?? 'tendance';
 
   const [filters, setFilters] = useState<ProductFilters & { page?: number; pageSize?: number }>({
     gender: initialGender,
     search: initialSearch,
+    min_price: initialMinPrice,
+    max_price: initialMaxPrice,
     page: 0,
     pageSize: 20,
   });
-  const [sort, setSort] = useState<SortOption>('newest');
+  const [sort, setSort] = useState<SortOption>(initialSort);
+
+  useEffect(() => {
+    if (urlCategorySlug && categories.length > 0 && !filters.category_id) {
+      const matched = categories.find(c => c.name && toSlug(c.name) === urlCategorySlug);
+      if (matched) {
+        setFilters(f => ({ ...f, category_id: matched.id, page: 0 }));
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, urlCategorySlug]);
 
   const { products, loading, error, totalCount } = useProducts(filters, sort);
 
+  const updateFilters = (newFilters: ProductFilters & { page?: number; pageSize?: number }) => {
+    setFilters(newFilters);
+    const params = new URLSearchParams(searchParams.toString());
+    
+    if (newFilters.gender && newFilters.gender !== 'all') params.set('gender', newFilters.gender);
+    else params.delete('gender');
+    
+    if (newFilters.search) params.set('search', newFilters.search);
+    else params.delete('search');
+
+    if (newFilters.min_price !== undefined) params.set('min_price', String(newFilters.min_price));
+    else params.delete('min_price');
+    
+    if (newFilters.max_price !== undefined) params.set('max_price', String(newFilters.max_price));
+    else params.delete('max_price');
+
+    if (newFilters.category_id) {
+       const matched = categories.find(c => c.id === newFilters.category_id);
+       if (matched && matched.name) {
+         params.set('category', toSlug(matched.name));
+       } else {
+         params.set('category', newFilters.category_id);
+       }
+    } else {
+       params.delete('category');
+    }
+
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
+  const updateSort = (newSort: SortOption) => {
+    setSort(newSort);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('sort', newSort);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  };
+
   const handleReset = useCallback(() => {
-    setFilters({ gender: 'all', page: 0, pageSize: 20 });
-    setSort('newest');
-  }, []);
+    updateFilters({ gender: 'all', page: 0, pageSize: 20 });
+    updateSort('tendance');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, pathname, categories, router]);
 
   const totalPages = Math.ceil((totalCount || 0) / (filters.pageSize || 20));
 
   const handlePageChange = (newPage: number) => {
-    setFilters(prev => ({ ...prev, page: newPage }));
+    updateFilters({ ...filters, page: newPage });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -66,7 +127,7 @@ function ShopContent() {
         <div className={styles.mobileFilterRow}>
           <FilterSidebar
             filters={filters}
-            onChange={(newFilters) => setFilters({ ...newFilters, page: 0, pageSize: 20 })}
+            onChange={(newFilters) => updateFilters({ ...newFilters, page: 0, pageSize: 20 })}
             onReset={handleReset}
           />
         </div>
@@ -76,7 +137,7 @@ function ShopContent() {
           <aside className={styles.sidebar}>
             <FilterSidebar
               filters={filters}
-              onChange={(newFilters) => setFilters({ ...newFilters, page: 0, pageSize: 20 })}
+              onChange={(newFilters) => updateFilters({ ...newFilters, page: 0, pageSize: 20 })}
               onReset={handleReset}
             />
           </aside>
@@ -86,7 +147,7 @@ function ShopContent() {
             <SortBar
               total={totalCount || products.length}
               sort={sort}
-              onSortChange={setSort}
+              onSortChange={updateSort}
             />
             <ProductGrid products={products} loading={loading} error={error} />
             

@@ -120,6 +120,16 @@ export function useCreateOrder() {
       // 4. Cosmos dispatch removed. The order remains 'pending'.
       // The admin will trigger the Cosmos API manually from the dashboard.
 
+      // 5. Trending: log order events for each item
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        payload.items.forEach(item => {
+          navigator.sendBeacon(
+            '/api/tracking/stats',
+            JSON.stringify({ product_id: item.product_id, event: 'order' })
+          );
+        });
+      }
+
       setSuccess(true);
       return order;
     } catch (e: unknown) {

@@ -24,12 +24,20 @@ export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const icEventId = React.useRef<string | null>(null);
+
   // Fire InitiateCheckout once when form mounts (user is in checkout)
   useEffect(() => {
+    if (!icEventId.current) {
+      icEventId.current = `ic-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    }
+    const contents = buildPurchaseContents(items);
     fbEvent.initiateCheckout({
       value:     total,
       num_items: items.reduce((s, i) => s + i.quantity, 0),
-    });
+      content_ids: items.map(i => String(i.product.id)),
+      contents,
+    }, icEventId.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -63,6 +71,20 @@ const handleSubmit = async (e: React.FormEvent) => {
     }
     setErrorLocal(null);
 
+    // Enrich InitiateCheckout with user data right before proceeding
+    const formContents = buildPurchaseContents(items);
+    let formattedPhone = formData.telephone.replace(/\D/g, '');
+    if (!formattedPhone.startsWith('216')) formattedPhone = '216' + formattedPhone;
+    
+    fbEvent.initiateCheckout({
+      value:     total,
+      num_items: items.reduce((s, i) => s + i.quantity, 0),
+      content_ids: items.map(i => String(i.product.id)),
+      contents: formContents,
+      email: formData.email,
+      phone: formattedPhone,
+    }, icEventId.current || undefined);
+
     const payload = {
       customer_name: `${formData.prenom} ${formData.nom}`.trim(),
       customer_email: formData.email,
@@ -81,12 +103,17 @@ const handleSubmit = async (e: React.FormEvent) => {
   const result = await createOrder(payload);
 
   if (result) {
+      const actualTotal = (result as any).total_price ?? total;
       const contents = buildPurchaseContents(items);
+
+      // Save user data for EMQ improvements
+      localStorage.setItem('nyvara_user_email', formData.email);
+      localStorage.setItem('nyvara_user_phone', formData.telephone);
 
       // Fire Purchase on both client pixel + server CAPI for reliable attribution
       await trackPurchase({
         order_id:    String(result.id ?? Date.now()),
-        value:       total,
+        value:       actualTotal,
         email:       formData.email,
         phone:       formData.telephone,
         first_name:  formData.prenom || undefined,

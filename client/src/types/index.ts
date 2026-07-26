@@ -112,20 +112,9 @@ export interface CreateOrderPayload {
   items: { product_id: string; quantity: number; selected_color?: ColorOption; quantity_break_price?: number }[];
 }
 
-// ─── Forum Types (future table) ────────────────────────────────────────────
-
-export interface ForumPost {
-  id: string;
-  title: string;
-  content: string;
-  author: string;
-  created_at: string;
-  tags?: string[];
-}
-
 // ─── Filter / Sort ────────────────────────────────────────────────────────
 
-export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'name_asc';
+export type SortOption = 'tendance' | 'newest' | 'price_asc' | 'price_desc' | 'name_asc';
 
 export interface ProductFilters {
   category_id?: string;

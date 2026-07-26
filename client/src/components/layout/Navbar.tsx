@@ -13,7 +13,6 @@ const NAV_LINKS = [
   { href: '/',      label: 'Accueil' },
   { href: '/shop',  label: 'Boutique' },
   { href: '/track', label: 'Suivi' },
-  { href: '/forum', label: 'Forum' },
 ];
 
 export default function Navbar() {

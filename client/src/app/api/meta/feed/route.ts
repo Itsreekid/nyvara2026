@@ -25,7 +25,7 @@ export async function GET() {
 
   const { data: products, error } = await supabase
     .from('products')
-    .select('id, title, description, price, final_price, discount, stock, image_url, gender, categories(id, name)')
+    .select('id, title, description, price, final_price, discount, stock, image_url, gender, badge, custom_label_0, color_options, categories(id, name)')
     .gt('stock', 0)
     .order('created_at', { ascending: false });
 

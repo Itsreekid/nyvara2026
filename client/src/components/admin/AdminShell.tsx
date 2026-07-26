@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, ShoppingCart, Package,
-  LogOut, Tag, Menu, X, Users, Megaphone,
+  LogOut, Tag, Menu, X, Users, Megaphone, TrendingUp,
 } from 'lucide-react';
 import { logoutAction } from '@/app/admin/actions';
 import { useOrderNotification } from '@/hooks/useOrderNotification';
@@ -90,6 +90,13 @@ export default function AdminShell({ role, children }: Props) {
             <Link href="/admin/catalog-ad" className={styles.navItem} data-active={pathname.startsWith('/admin/catalog-ad')}>
               <Megaphone size={20} />
               <span>Catalog Ad</span>
+            </Link>
+          )}
+
+          {isAdmin && (
+            <Link href="/admin/trending" className={styles.navItem} data-active={pathname.startsWith('/admin/trending')}>
+              <TrendingUp size={20} />
+              <span>Tendances</span>
             </Link>
           )}
         </nav>

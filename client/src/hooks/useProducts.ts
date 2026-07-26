@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { Product, ProductFilters, SortOption } from '@/types';
 
+const getActualPrice = (p: Product) => {
+  const hasDiscount = p.discount != null && p.discount > 0;
+  if (hasDiscount && p.price != null) {
+    return Math.round(p.price * (1 - p.discount / 100));
+  }
+  return p.final_price ?? p.price ?? 0;
+};
+
 // ─── useProducts ──────────────────────────────────────────────────────────────
 
 export function useProducts(filters?: ProductFilters, sort?: SortOption) {
@@ -38,30 +46,68 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
       if (filters?.gender && filters.gender !== 'all')
         query = query.eq('gender', filters.gender);
 
-      if (filters?.min_price !== undefined)
-        query = query.gte('price', filters.min_price);
-
-      if (filters?.max_price !== undefined)
-        query = query.lte('price', filters.max_price);
-
       if (filters?.search)
         query = query.ilike('title', `%${filters.search}%`);
 
-      // Sort
+      const needsJSSort = sort === 'tendance' || sort === 'price_asc' || sort === 'price_desc';
+      const needsJSFilter = filters?.min_price !== undefined || filters?.max_price !== undefined;
+
+      // Sort in DB if possible
       switch (sort) {
-        case 'price_asc':  query = query.order('price',      { ascending: true });  break;
-        case 'price_desc': query = query.order('price',      { ascending: false }); break;
         case 'name_asc':   query = query.order('title',      { ascending: true });  break;
+        case 'tendance':
+        case 'price_asc':
+        case 'price_desc': /* Custom JS Sort below */                               break;
         default:           query = query.order('created_at', { ascending: false }); break;
       }
 
-      // Apply pagination
-      query = query.range(offset, offset + pageSize - 1);
+      // Apply pagination in DB ONLY if we don't need JS sorting/filtering
+      if (!needsJSSort && !needsJSFilter) {
+        query = query.range(offset, offset + pageSize - 1);
+      }
 
       const { data, error: err, count } = await query;
       if (err) throw err;
-      setProducts((data as Product[]) ?? []);
-      setTotalCount(count ?? 0);
+      
+      let finalData = (data as Product[]) ?? [];
+
+      // 1. JS Filter by Price
+      if (needsJSFilter) {
+        finalData = finalData.filter(p => {
+          const price = getActualPrice(p);
+          if (filters?.min_price !== undefined && price < filters.min_price) return false;
+          if (filters?.max_price !== undefined && price > filters.max_price) return false;
+          return true;
+        });
+      }
+
+      // 2. JS Sort
+      if (sort === 'tendance') {
+        try {
+          const res = await fetch('/api/trending');
+          if (res.ok) {
+            const trendingData = await res.json();
+            const scoreMap = new Map(trendingData.map((t: any) => [t.product_id, t.trending_score]));
+            finalData.sort((a, b) => (scoreMap.get(b.id) || 0) - (scoreMap.get(a.id) || 0));
+          }
+        } catch (e) {
+          console.error('Failed to load trending scores for sorting', e);
+        }
+      } else if (sort === 'price_asc') {
+        finalData.sort((a, b) => getActualPrice(a) - getActualPrice(b));
+      } else if (sort === 'price_desc') {
+        finalData.sort((a, b) => getActualPrice(b) - getActualPrice(a));
+      }
+
+      // 3. JS Pagination
+      if (needsJSSort || needsJSFilter) {
+        setTotalCount(finalData.length);
+        finalData = finalData.slice(offset, offset + pageSize);
+      } else {
+        setTotalCount(count ?? 0);
+      }
+
+      setProducts(finalData);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load products');
     } finally {

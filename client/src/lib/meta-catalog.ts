@@ -23,6 +23,7 @@ export type MetaCatalogProduct = Pick<
   | 'color_options'
 > & {
   categories?: Product['categories'] | { name: string | null }[] | null;
+  custom_label_0?: string | null;
 };
 
 export function formatMetaPrice(price: number): string {
@@ -117,19 +118,37 @@ export function buildMetaCatalogXmlItem(
 ${indent}  <g:sale_price>${formatMetaPrice(salePrice)}</g:sale_price>`
     : `<g:price>${formatMetaPrice(salePrice)}</g:price>`;
 
+  let customLabels = '';
+  if (product.custom_label_0) {
+    customLabels += `\n${indent}  <g:custom_label_0>${escXml(product.custom_label_0)}</g:custom_label_0>`;
+  }
+  if (product.badge) {
+    const badgeIdx = product.custom_label_0 ? 1 : 0;
+    customLabels += `\n${indent}  <g:custom_label_${badgeIdx}>${escXml(product.badge)}</g:custom_label_${badgeIdx}>`;
+  }
+
+  const additionalImages = collectAdditionalImageUrls(product, options?.galleryUrls);
+  let additionalImagesXml = '';
+  if (additionalImages.length > 0) {
+    additionalImagesXml = '\n' + additionalImages
+      .slice(0, 10)
+      .map(url => `${indent}  <g:additional_image_link>${escXml(url)}</g:additional_image_link>`)
+      .join('\n');
+  }
+
   return `${indent}<item>
 ${indent}  <g:id>${product.id}</g:id>
 ${indent}  <g:title>${title}</g:title>
 ${indent}  <g:description>${description}</g:description>
 ${indent}  <g:link>${link}</g:link>
-${indent}  <g:image_link>${imageLink}</g:image_link>
+${indent}  <g:image_link>${imageLink}</g:image_link>${additionalImagesXml}
 ${indent}  <g:availability>${availability}</g:availability>
 ${indent}  ${priceBlock}
 ${indent}  <g:brand>${brand}</g:brand>
 ${indent}  <g:condition>new</g:condition>
 ${indent}  <g:google_product_category>${googleCategory}</g:google_product_category>
 ${indent}  <g:product_type>${productType}</g:product_type>
-${indent}  <g:gender>${gender}</g:gender>${product.badge ? `\n${indent}  <g:custom_label_0>${escXml(product.badge)}</g:custom_label_0>` : ''}
+${indent}  <g:gender>${gender}</g:gender>${customLabels}
 ${indent}</item>`;
 }
 

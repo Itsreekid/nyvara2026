@@ -70,6 +70,14 @@ export default function ProductDetail({ product, gallery, related }: Props) {
       content_type:     'product',
       content_category: product.categories?.name ?? undefined,
     });
+
+    // ── Trending: log page view ─────────────────────────────────────────
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon(
+        '/api/tracking/stats',
+        JSON.stringify({ product_id: product.id, event: 'view' })
+      );
+    }
   }, [product.id, product.title, product.final_price, product.price, product.categories?.name]);
 
   const hasDiscount     = product.discount != null && product.discount > 0;
@@ -167,9 +175,16 @@ export default function ProductDetail({ product, gallery, related }: Props) {
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
       content_name: product.title ?? '',
-      value:        Number((product.final_price ?? product.price ?? 0) * qty),
+      value:        Number((discountedPrice ?? product.final_price ?? product.price ?? 0) * qty),
       content_type: 'product',
     });
+    // ── Trending: log add-to-cart ─────────────────────────────────────
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon(
+        '/api/tracking/stats',
+        JSON.stringify({ product_id: product.id, event: 'cart' })
+      );
+    }
     setQty(1);
   };
 
@@ -181,14 +196,30 @@ export default function ProductDetail({ product, gallery, related }: Props) {
     fbEvent.addToCart({
       content_ids:  [String(product.id)],
       content_name: product.title ?? '',
-      value:        (product.final_price ?? product.price ?? 0) * qty,
+      value:        (discountedPrice ?? product.final_price ?? product.price ?? 0) * qty,
       content_type: 'product',
     });
+    // ── Trending: log add-to-cart (Buy Now also counts as a cart event) ──
+    if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+      navigator.sendBeacon(
+        '/api/tracking/stats',
+        JSON.stringify({ product_id: product.id, event: 'cart' })
+      );
+    }
     router.push('/cart?checkout=true');
   };
 
   const handleWishlist = () => {
-    wishlisted ? removeFromWishlist(product.id) : addToWishlist(product);
+    if (wishlisted) {
+      removeFromWishlist(product.id);
+    } else {
+      addToWishlist(product);
+      fbEvent.addToWishlist({
+        content_ids:  [String(product.id)],
+        content_name: product.title ?? '',
+        value:        Number(discountedPrice ?? product.final_price ?? product.price ?? 0),
+      });
+    }
   };
 
   return (
