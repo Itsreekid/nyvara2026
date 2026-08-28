@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import { Heart, ShoppingBag, ArrowLeft, Star, Truck, RotateCcw, ShieldCheck, Minus, Plus, CheckCircle2, Sun, Eye, Zap } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useWishlist } from '@/context/WishlistContext';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import ProductCard from '@/components/shop/ProductCard';
 import type { Product, ColorOption } from '@/types';
 import styles from './product.module.css';
@@ -17,6 +19,7 @@ const formatTND = (price: number | null) => {
   return `${price.toLocaleString('fr-TN', { minimumFractionDigits: 3 })} TND`;
 };
 
+// genderLabel can be handled dynamically if needed, but let's keep it here 
 const genderLabel: Record<string, string> = {
   homme: "Men's",
   femme: "Women's",
@@ -53,6 +56,8 @@ export default function ProductDetail({ product, gallery, related }: Props) {
   const router = useRouter();
   const { addItem, isInCart }                             = useCart();
   const { addToWishlist, removeFromWishlist, isWishlisted } = useWishlist();
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
 
   const inCart     = isInCart(product.id);
   const wishlisted = isWishlisted(product.id);
@@ -228,7 +233,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
         {/* ── Back ── */}
         <Link href="/shop" className={styles.back}>
-          <ArrowLeft size={14} /> Retour à la boutique
+          <ArrowLeft size={14} /> {language === 'fr' ? 'Retour à la boutique' : 'الرجوع للحانوت'}
         </Link>
 
         {/* ══════════ HERO ══════════ */}
@@ -300,8 +305,8 @@ export default function ProductDetail({ product, gallery, related }: Props) {
               <div className={styles.heroBadge}>{product.badge}</div>
             )}
             <div className={styles.metaRow}>
-              {product.categories?.name && <span className={styles.category}>{product.categories.name}</span>}
-              {product.gender && <span className={styles.genderPill}>{genderLabel[product.gender]}</span>}
+              {product.categories?.name && <span className={styles.category}>{product.categories.name === 'Sunglasses' ? t('product.categorySunglasses') : (product.categories.name === 'Eyeglasses' ? t('product.categoryEyeglasses') : product.categories.name)}</span>}
+              {product.gender && <span className={styles.genderPill}>{product.gender === 'homme' ? t('product.genderMen') : product.gender === 'femme' ? t('product.genderWomen') : t('product.genderUnisex')}</span>}
             </div>
 
             {/* Title */}
@@ -313,14 +318,14 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                 <Stars rating={product.rating} />
                 <span className={styles.ratingNum}>{product.rating.toFixed(1)}</span>
                 {product.review_count != null && (
-                  <span className={styles.reviewCount}>({product.review_count.toLocaleString('fr-FR')} avis)</span>
+                  <span className={styles.reviewCount}>({product.review_count.toLocaleString('fr-FR')} {language === 'fr' ? 'avis' : 'تقييم'})</span>
                 )}
               </div>
             )}
             {/* Color Selector (Only for 1 unit) */}
             {qty === 1 && product.color_options && product.color_options.length > 0 && (
               <div className={styles.colorSelector}>
-                <p className={styles.colorLabel}>Couleur : <strong>{selectedColors[0]?.name || 'Veuillez choisir'}</strong></p>
+                <p className={styles.colorLabel}>{t('product.color')} <strong>{selectedColors[0]?.name || t('product.chooseColor')}</strong></p>
                 <div className={styles.colorList}>
                   {product.color_options.map(co => (
                     <button
@@ -351,7 +356,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                 <div className={styles.priceRow}>
                   <span className={styles.price}>{formatTND(discountedPrice)}</span>
                   <span className={styles.originalPrice}>{formatTND(product.price)}</span>
-                  <span className={styles.saveBadge}>Économisez {product.discount}%</span>
+                  <span className={styles.saveBadge}>{language === 'fr' ? 'Économisez' : 'وفر'} {product.discount}%</span>
                 </div>
               ) : (
                 <span className={styles.priceNormal}>{formatTND(product.price)}</span>
@@ -376,13 +381,13 @@ export default function ProductDetail({ product, gallery, related }: Props) {
 
             {/* Stock */}
             <p className={inStockBool ? styles.inStock : styles.outOfStock}>
-              {inStockBool ? `✓ En stock` : (product.is_active === false ? '✗ Indisponible' : '✗ Rupture de stock')}
+              {inStockBool ? t('product.inStock') : (product.is_active === false ? t('product.unavailable') : t('product.outOfStock'))}
             </p>
 
             {/* Quantity Breaks (Offres de quantité) */}
             {product.quantity_breaks && product.quantity_breaks.length > 0 && inStockBool && (
               <div className={styles.qbreaksContainer}>
-                <p className={styles.qbreaksTitle}>Offres spéciales :</p>
+                <p className={styles.qbreaksTitle}>{t('product.specialOffers')}</p>
                 <div className={styles.qbreaksList}>
                   {/* Option 1: Standard */}
                   <div 
@@ -393,10 +398,10 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                       <div className={styles.qbreakRadioInner} />
                     </div>
                     <div className={styles.qbreakInfo}>
-                      <span className={styles.qbreakQty}>1 unité</span>
+                      <span className={styles.qbreakQty}>1 {t('product.unit')}</span>
                       <span className={styles.qbreakPrice}>{formatTND(discountedPrice || product.price)}</span>
                     </div>
-                    <span className={styles.qbreakLabel}>Prix standard</span>
+                    <span className={styles.qbreakLabel}>{t('product.standardPrice')}</span>
                   </div>
 
                   {/* Options: Breaks */}
@@ -410,7 +415,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                         <div className={styles.qbreakRadioInner} />
                       </div>
                       <div className={styles.qbreakInfo}>
-                        <span className={styles.qbreakQty}>{qb.min_qty} unités</span>
+                        <span className={styles.qbreakQty}>{qb.min_qty} {t('product.units')}</span>
                         <span className={styles.qbreakTotal}>{formatTND(qb.total_price)}</span>
                         
                         {/* Multi-color selection INSIDE the card when active */}
@@ -418,7 +423,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                           <div className={styles.qbreakColors}>
                             {Array.from({ length: qb.min_qty }).map((_, uIdx) => (
                               <div key={uIdx} className={styles.qbreakColorRow}>
-                                <span className={styles.qbreakColorLabel}>Paire {uIdx + 1} :</span>
+                                <span className={styles.qbreakColorLabel}>{t('product.pair')} {uIdx + 1} :</span>
                                 <div className={styles.colorListSmall}>
                                   {product.color_options?.map(co => (
                                     <button
@@ -458,7 +463,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
             {/* Quantity Selector (Show only if no breaks) */}
             {inStockBool && (!product.quantity_breaks || product.quantity_breaks.length === 0) && (
               <div className={styles.qtyRow}>
-                <span className={styles.qtyLabel}>Quantité :</span>
+                <span className={styles.qtyLabel}>{t('product.qty')}</span>
                 <div className={styles.qtyControl}>
                   <button className={styles.qtyBtn} onClick={() => setQty(q => Math.max(1, q - 1))}>
                     <Minus size={14} />
@@ -480,7 +485,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                 disabled={!inStockBool}
               >
                 <ShoppingBag size={18} />
-                Passer commande
+                {t('product.buyNow')}
               </button>
 
               {/* Secondary — add to cart only */}
@@ -489,7 +494,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                 onClick={handleAddToCart}
                 disabled={!inStockBool}
               >
-                {inCart ? 'Ajouté au panier ✓' : 'Ajouter au panier'}
+                {inCart ? t('product.addedToCart') : t('product.addToCart')}
               </button>
 
               <button
@@ -497,7 +502,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
                 onClick={handleWishlist}
               >
                 <Heart size={16} fill={wishlisted ? 'currentColor' : 'none'} />
-                {wishlisted ? 'Retiré des favoris' : 'Ajouter aux favoris'}
+                {wishlisted ? t('product.removeFromWishlist') : t('product.addToWishlist')}
               </button>
             </div>
 
@@ -557,13 +562,13 @@ export default function ProductDetail({ product, gallery, related }: Props) {
           <div className={styles.detailsSection}>
             {product.description && (
               <div className={styles.descCard}>
-                <h2 className={styles.sectionTitle}>À propos de ce produit</h2>
+                <h2 className={styles.sectionTitle}>{t('product.descriptionTitle')}</h2>
                 <p className={styles.descText}>{product.description}</p>
               </div>
             )}
             {specEntries.length > 0 && (
               <div className={styles.specsCard}>
-                <h2 className={styles.sectionTitle}>Caractéristiques techniques</h2>
+                <h2 className={styles.sectionTitle}>{t('product.specsTitle')}</h2>
                 <table className={styles.specsTable}>
                   <tbody>
                     {specEntries.map(([key, val]) => (
@@ -582,7 +587,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
         {/* ══════════ RELATED PRODUCTS ══════════ */}
         {related.length > 0 && (
           <div className={styles.relatedSection}>
-            <h2 className={styles.sectionTitle}>Vous aimerez aussi</h2>
+            <h2 className={styles.sectionTitle}>{t('product.relatedTitle')}</h2>
             <div className={styles.relatedGrid}>
               {related.map(p => (
                 <ProductCard key={p.id} product={p} />
@@ -595,7 +600,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
         {/* Hidden on desktop (CSS), replaces actions on mobile */}
         <div className={styles.mobileCta}>
           <div className={styles.mobilePriceBlock}>
-            <span className={styles.mobilePriceLabel}>Prix</span>
+            <span className={styles.mobilePriceLabel}>{language === 'fr' ? 'Prix' : 'السعر'}</span>
             {hasDiscount ? (
               <>
                 <span className={styles.mobilePriceVal}>{formatTND(discountedPrice)}</span>
@@ -611,7 +616,7 @@ export default function ProductDetail({ product, gallery, related }: Props) {
             disabled={!inStockBool}
           >
             <ShoppingBag size={16} />
-            {inStockBool ? 'Passer commande' : 'Rupture de stock'}
+            {inStockBool ? t('product.buyNow') : t('product.outOfStock')}
           </button>
         </div>
 

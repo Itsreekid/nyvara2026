@@ -109,8 +109,13 @@ async function fireServer(eventName: string, params: Record<string, unknown>, ev
   try {
     const guestCookie = document.cookie.match(/(^|;)\s*nyvara_guest_id\s*=\s*([^;]+)/);
     const guestId = guestCookie ? guestCookie[2] : (localStorage.getItem('nyvara_guest_id') || undefined);
-    const em = localStorage.getItem('nyvara_user_email') || undefined;
-    const ph = localStorage.getItem('nyvara_user_phone') || undefined;
+
+    // Read all four PII fields from localStorage (written by persistMetaIdentity).
+    // Explicit values passed in `params` always take precedence over stored ones.
+    const em = localStorage.getItem('nyvara_user_email')     || undefined;
+    const ph = localStorage.getItem('nyvara_user_phone')     || undefined;
+    const fn = localStorage.getItem('nyvara_user_first_name') || undefined;
+    const ln = localStorage.getItem('nyvara_user_last_name')  || undefined;
 
     await fetch('/api/meta/events', {
       method: 'POST',
@@ -122,8 +127,10 @@ async function fireServer(eventName: string, params: Record<string, unknown>, ev
         event_id: eventId,
         event_source_url: window.location.href,
         external_id: guestId,
-        email: params.email || em,
-        phone: params.phone || ph,
+        email:      (params.email      as string | undefined) || em,
+        phone:      (params.phone      as string | undefined) || ph,
+        first_name: (params.first_name as string | undefined) || fn,
+        last_name:  (params.last_name  as string | undefined) || ln,
       }),
     });
   } catch (err) {

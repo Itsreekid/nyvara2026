@@ -8,6 +8,8 @@ import CartItem from './CartItem';
 import OrderSummary from './OrderSummary';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import styles from './CartDrawer.module.css';
 
 interface CartDrawerProps {
@@ -18,6 +20,8 @@ interface CartDrawerProps {
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { items, itemCount, clearCart } = useCart();
   const router = useRouter();
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
   const [lastOrder, setLastOrder] = useState<string | null>(null);
 
   // Lock body scroll when open and check for last order
@@ -66,14 +70,14 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           <div className={styles.headerLeft}>
             <ShoppingBag size={18} />
             <span className={styles.title}>
-              Panier
+              {t('cart.title')}
               {itemCount > 0 && <span className={styles.count}>({itemCount})</span>}
             </span>
           </div>
           <div className={styles.headerActions}>
             {items.length > 0 && (
               <button className={styles.clearBtn} onClick={clearCart}>
-                Tout vider
+                {language === 'fr' ? 'Tout vider' : 'إفراغ الكل'}
               </button>
             )}
             <button className={styles.closeBtn} onClick={onClose} aria-label="Fermer le panier">
@@ -88,10 +92,10 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             <div className={styles.trackingBanner}>
               <div className={styles.trackingInfo}>
                 <Package size={16} />
-                <span>Suivi de commande</span>
+                <span>{language === 'fr' ? 'Suivi de commande' : 'تتبع الطلبية'}</span>
               </div>
               <Link href={`/track/${lastOrder}`} onClick={onClose} className={styles.trackingLink}>
-                Suivre →
+                {language === 'fr' ? 'Suivre →' : 'تتبع →'}
               </Link>
             </div>
           )}
@@ -99,10 +103,10 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
           {items.length === 0 ? (
             <div className={styles.empty}>
               <ShoppingBag size={48} className={styles.emptyIcon} />
-              <p className={styles.emptyTitle}>Votre panier est vide</p>
-              <p className={styles.emptyText}>Ajoutez des lunettes pour commencer vos achats.</p>
+              <p className={styles.emptyTitle}>{t('cart.empty')}</p>
+              <p className={styles.emptyText}>{language === 'fr' ? 'Ajoutez des lunettes pour commencer vos achats.' : 'زيد نظارات باش تبدا تشري.'}</p>
               <Link href="/shop" onClick={onClose}>
-                <Button variant="primary" size="md">Boutique</Button>
+                <Button variant="primary" size="md">{t('shop.title')}</Button>
               </Link>
             </div>
           ) : (

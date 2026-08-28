@@ -5,10 +5,14 @@ import { ArrowRight } from 'lucide-react';
 import ProductCard from '@/components/shop/ProductCard';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 import { useFeaturedProducts } from '@/hooks/useProducts';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import styles from './FeaturedProducts.module.css';
 
 export default function FeaturedProducts() {
   const { products, loading } = useFeaturedProducts(6);
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
 
   return (
     <section className={styles.section} id="featured">
@@ -16,11 +20,11 @@ export default function FeaturedProducts() {
         {/* Header */}
         <div className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>Styles Prêts-à-Porter</p>
-            <h2 className={styles.headline}>Choisissez l’un de nos<br />Styles Prêts-à-Porter</h2>
+            <p className={styles.eyebrow}>{t('featured.eyebrow')}</p>
+            <h2 className={styles.headline} style={{ whiteSpace: 'pre-line' }}>{t('featured.title')}</h2>
           </div>
           <Link href="/shop" className={styles.viewAll}>
-            Voir tout <ArrowRight size={16} />
+            {t('featured.viewAll')} {language === 'fr' ? <ArrowRight size={16} /> : <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} />}
           </Link>
         </div>
 
@@ -31,7 +35,7 @@ export default function FeaturedProducts() {
           </div>
         ) : products.length === 0 ? (
           <div className={styles.emptyWrap}>
-            <p className={styles.emptyText}>Produits à venir — revenez bientôt.</p>
+            <p className={styles.emptyText}>{t('featured.emptyText')}</p>
           </div>
         ) : (
           <div className={styles.grid}>

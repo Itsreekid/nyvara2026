@@ -9,6 +9,8 @@ import ProductSkeleton from '@/components/shop/ProductSkeleton';
 import SortBar       from '@/components/shop/SortBar';
 import { useProducts } from '@/hooks/useProducts';
 import { useCategories } from '@/hooks/useOrders';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import type { ProductFilters, SortOption } from '@/types';
 import styles from './shop.module.css';
 
@@ -26,6 +28,8 @@ function ShopContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { categories } = useCategories();
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
 
   const toSlug = (str: string) => str.toLowerCase().replace(/[\s_]+/g, '-').replace(/[^\w-]+/g, '');
 
@@ -34,13 +38,15 @@ function ShopContent() {
   const initialMinPrice = searchParams.has('min_price') ? Number(searchParams.get('min_price')) : undefined;
   const initialMaxPrice = searchParams.has('max_price') ? Number(searchParams.get('max_price')) : undefined;
   const urlCategorySlug = searchParams.get('category');
-  const initialSort = (searchParams.get('sort') as SortOption) ?? 'tendance';
+  const initialSort = (searchParams.get('sort') as SortOption) ?? 'newest';
+  const initialFrameShape = searchParams.get('frame_shape') ?? undefined;
 
   const [filters, setFilters] = useState<ProductFilters & { page?: number; pageSize?: number }>({
     gender: initialGender,
     search: initialSearch,
     min_price: initialMinPrice,
     max_price: initialMaxPrice,
+    frame_shape: initialFrameShape,
     page: 0,
     pageSize: 20,
   });
@@ -85,6 +91,9 @@ function ShopContent() {
        params.delete('category');
     }
 
+    if (newFilters.frame_shape) params.set('frame_shape', newFilters.frame_shape);
+    else params.delete('frame_shape');
+
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   };
 
@@ -97,7 +106,7 @@ function ShopContent() {
 
   const handleReset = useCallback(() => {
     updateFilters({ gender: 'all', page: 0, pageSize: 20 });
-    updateSort('tendance');
+    updateSort('newest');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, pathname, categories, router]);
 
@@ -113,10 +122,10 @@ function ShopContent() {
       {/* Page header */}
       <div className={styles.pageHeader}>
         <div className={styles.pageHeaderInner}>
-          <p className={styles.eyebrow}>Notre Collection</p>
-          <h1 className={styles.pageTitle}>Boutique</h1>
+          <p className={styles.eyebrow}>{t('shop.subtitle')}</p>
+          <h1 className={styles.pageTitle}>{t('shop.title')}</h1>
           <p className={styles.pageSubtitle}>
-            Découvrez des lunettes premium conçues pour le soleil tunisien
+            {t('shop.desc')}
           </p>
         </div>
       </div>
@@ -159,11 +168,11 @@ function ShopContent() {
                   disabled={(filters.page || 0) === 0}
                   className={styles.paginationBtn}
                 >
-                  ← Précédent
+                  ← {t('shop.prev')}
                 </button>
                 
                 <div className={styles.paginationInfo}>
-                  Page {(filters.page || 0) + 1} sur {totalPages}
+                  Page {(filters.page || 0) + 1} / {totalPages}
                 </div>
                 
                 <button 
@@ -171,7 +180,7 @@ function ShopContent() {
                   disabled={(filters.page || 0) >= totalPages - 1}
                   className={styles.paginationBtn}
                 >
-                  Suivant →
+                  {t('shop.next')} →
                 </button>
               </div>
             )}

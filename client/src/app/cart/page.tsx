@@ -9,11 +9,15 @@ import OrderSummary from '@/components/cart/OrderSummary';
 import CheckoutForm from '@/components/cart/CheckoutForm';
 import Button from '@/components/ui/Button';
 import Link from 'next/link';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import styles from './cart.module.css';
 
 function CartContent() {
   const searchParams = useSearchParams();
   const { items, itemCount, clearCart } = useCart();
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
   const [step, setStep] = useState<'cart' | 'checkout' | 'success'>('cart');
 
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -32,17 +36,17 @@ function CartContent() {
             <div className={styles.successIcon}>
               <CheckCircle2 size={80} color="var(--color-gold)" />
             </div>
-            <h1 className={styles.emptyTitle}>Merci pour votre commande !</h1>
+            <h1 className={styles.emptyTitle}>{t('checkout.successTitle')}</h1>
             <p className={styles.emptyText}>
-              Votre commande a été reçue avec succès. Nous vous contacterons très prochainement par téléphone pour confirmer les détails de la livraison.
+              {t('checkout.successDesc')}
             </p>
             <div style={{ display: 'flex', gap: '16px', marginTop: '24px', flexWrap: 'wrap', justifyContent: 'center' }}>
               <Link href="/shop">
-                <Button variant="gold" size="lg">Continuer vos achats</Button>
+                <Button variant="gold" size="lg">{t('checkout.continueShopping')}</Button>
               </Link>
               {orderId && (
                 <Link href={`/track/${orderId}`}>
-                  <Button variant="primary" size="lg">Suivre ma commande</Button>
+                  <Button variant="primary" size="lg">{t('checkout.trackOrder')}</Button>
                 </Link>
               )}
             </div>
@@ -64,12 +68,12 @@ function CartContent() {
               </button>
             )}
             <ShoppingBag size={28} />
-            {step === 'cart' ? 'Votre Panier' : 'Finaliser la commande'}
-            {step === 'cart' && itemCount > 0 && <span className={styles.count}>{itemCount} articles</span>}
+            {step === 'cart' ? t('checkout.cartTitle') : t('checkout.finalizeTitle')}
+            {step === 'cart' && itemCount > 0 && <span className={styles.count}>{itemCount} {t('checkout.itemsCount')}</span>}
           </h1>
           {items.length > 0 && step === 'cart' && (
             <button className={styles.clearBtn} onClick={clearCart}>
-              Vider le panier
+              {language === 'fr' ? 'Vider le panier' : 'إفراغ السلة'}
             </button>
           )}
         </div>
@@ -80,12 +84,12 @@ function CartContent() {
             <div className={styles.emptyIcon}>
               <ShoppingBag size={56} />
             </div>
-            <h2 className={styles.emptyTitle}>Votre panier est vide</h2>
+            <h2 className={styles.emptyTitle}>{t('checkout.emptyTitle')}</h2>
             <p className={styles.emptyText}>
-              Ajoutez des lunettes à votre panier et elles apparaîtront ici.
+              {t('checkout.emptyDesc')}
             </p>
             <Link href="/shop">
-              <Button variant="primary" size="lg">Commencer à acheter</Button>
+              <Button variant="primary" size="lg">{t('checkout.startShopping')}</Button>
             </Link>
           </div>
         ) : (
@@ -96,15 +100,15 @@ function CartContent() {
               {step === 'cart' ? (
                 <>
                   <div className={styles.itemsHeader}>
-                    <span>Produit</span>
-                    <span>Qté</span>
+                    <span>{t('checkout.itemHeader')}</span>
+                    <span>{t('checkout.qtyHeader')}</span>
                   </div>
                   {items.map(item => (
-                    <CartItem key={item.product.id} item={item} />
+                    <CartItem key={`${item.product.id}-${item.selected_color?.id ?? 'no-color'}`} item={item} />
                   ))}
                   <div className={styles.continueShopping}>
                     <Link href="/shop" className={styles.continueLink}>
-                      ← Continuer vos achats
+                      {language === 'fr' ? '← Continuer vos achats' : '← كمل تسوق'}
                     </Link>
                   </div>
                 </>
@@ -119,7 +123,7 @@ function CartContent() {
 
             {/* Right Column: Summary sticky panel */}
             <div className={styles.summaryPanel}>
-              <h2 className={styles.summaryTitle}>Récapitulatif</h2>
+              <h2 className={styles.summaryTitle}>{t('checkout.summaryTitle')}</h2>
               <OrderSummary 
                 onCheckoutTap={() => setStep('checkout')} 
                 showCheckoutBtn={step === 'cart'}

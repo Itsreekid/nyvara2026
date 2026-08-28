@@ -43,11 +43,19 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
       if (filters?.category_id)
         query = query.eq('category_id', filters.category_id);
 
-      if (filters?.gender && filters.gender !== 'all')
-        query = query.eq('gender', filters.gender);
+      if (filters?.gender && filters.gender !== 'all') {
+        if (filters.gender === 'homme' || filters.gender === 'femme') {
+          query = query.in('gender', [filters.gender, 'unisex']);
+        } else {
+          query = query.eq('gender', filters.gender);
+        }
+      }
 
       if (filters?.search)
         query = query.ilike('title', `%${filters.search}%`);
+
+      if (filters?.frame_shape)
+        query = query.eq('frame_shape', filters.frame_shape);
 
       const needsJSSort = sort === 'tendance' || sort === 'price_asc' || sort === 'price_desc';
       const needsJSFilter = filters?.min_price !== undefined || filters?.max_price !== undefined;
@@ -119,7 +127,7 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
     } finally {
       setLoading(false);
     }
-  }, [filters?.category_id, filters?.gender, filters?.min_price, filters?.max_price, filters?.search, sort, (filters as any)?.page, (filters as any)?.pageSize]);
+  }, [filters?.category_id, filters?.gender, filters?.min_price, filters?.max_price, filters?.search, filters?.frame_shape, sort, (filters as any)?.page, (filters as any)?.pageSize]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 

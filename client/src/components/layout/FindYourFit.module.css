@@ -1,0 +1,416 @@
+/* ═══════════════════════════════════════════════════════════
+   FIND YOUR FIT — Sizing Wizard Modal
+   Nyvara Design System · CSS Modules
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── Overlay / Backdrop ────────────────────────────────── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  background: rgba(13, 12, 10, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: backdropIn 0.25s ease both;
+}
+
+@keyframes backdropIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ─── Modal Panel ───────────────────────────────────────── */
+.modal {
+  position: relative;
+  background: #FAFAF8;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 4px 6px rgba(0,0,0,0.04),
+    0 24px 80px rgba(0,0,0,0.22);
+  animation: modalIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.modal::-webkit-scrollbar { width: 0; }
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(28px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ─── Header strip ──────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 28px 0;
+  flex-shrink: 0;
+}
+
+.stepLabel {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+.closeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--color-grey);
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+.closeBtn:hover {
+  background: var(--color-cream-dark);
+  color: var(--color-black);
+}
+
+/* ─── Progress Bar ──────────────────────────────────────── */
+.progressBar {
+  height: 2px;
+  background: var(--color-cream-dark);
+  margin: 14px 28px 0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-gold), #e8c77a);
+  border-radius: 2px;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─── Body ──────────────────────────────────────────────── */
+.body {
+  padding: 28px 28px 32px;
+  flex: 1;
+  animation: stepIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes stepIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.stepTitle {
+  font-family: var(--font-editorial);
+  font-size: 1.7rem;
+  font-weight: 400;
+  color: var(--color-black);
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+.stepSub {
+  font-size: 13px;
+  color: var(--color-grey);
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+/* ─── Option Grid ───────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.grid3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* ─── Option Card ───────────────────────────────────────── */
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 14px 18px;
+  border: 1.5px solid var(--color-cream-dark);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  text-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.card:hover {
+  border-color: #c9a96e88;
+  box-shadow: 0 4px 20px rgba(201,169,110,0.12);
+  transform: translateY(-2px);
+}
+.cardSelected {
+  border-color: var(--color-gold);
+  background: #fffdf7;
+  box-shadow: 0 0 0 3px rgba(201,169,110,0.18), 0 4px 20px rgba(201,169,110,0.14);
+}
+.checkMark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-gold);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pop 0.22s ease;
+}
+@keyframes pop {
+  0%   { transform: scale(0); }
+  70%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+.cardIcon {
+  font-size: 2rem;
+  line-height: 1;
+}
+.cardLabel {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--color-black);
+}
+.cardSub {
+  font-size: 11px;
+  color: var(--color-grey);
+  line-height: 1.4;
+}
+
+/* ─── Tip Box ───────────────────────────────────────────── */
+.tip {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: rgba(201,169,110,0.08);
+  border: 1px solid rgba(201,169,110,0.2);
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--color-grey);
+  line-height: 1.6;
+}
+
+/* ─── Navigation Buttons ────────────────────────────────── */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 28px 28px;
+  flex-shrink: 0;
+}
+.backBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-grey);
+  padding: 10px 16px;
+  border-radius: 10px;
+  transition: background 0.2s, color 0.2s;
+}
+.backBtn:hover {
+  background: var(--color-cream-dark);
+  color: var(--color-black);
+}
+.nextBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: var(--color-black);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-radius: 10px;
+  transition: background 0.2s, transform 0.15s;
+  margin-left: auto;
+}
+.nextBtn:hover:not(:disabled) {
+  background: #2a2a2a;
+  transform: translateY(-1px);
+}
+.nextBtn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+/* ─── Results Screen ────────────────────────────────────── */
+.results {
+  padding: 32px 28px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  animation: stepIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.resultsBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #c9a96e22, #e8c77a18);
+  border: 1px solid rgba(201,169,110,0.35);
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9a7a3f;
+  margin-bottom: 22px;
+}
+
+.resultsTitle {
+  font-family: var(--font-editorial);
+  font-size: 2rem;
+  font-weight: 400;
+  color: var(--color-black);
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.resultsSize {
+  display: inline-block;
+  margin-bottom: 18px;
+  padding: 4px 14px;
+  background: var(--color-black);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 6px;
+}
+
+.resultsDesc {
+  font-size: 14px;
+  color: var(--color-grey);
+  line-height: 1.7;
+  max-width: 400px;
+  margin-bottom: 28px;
+}
+
+.resultsCtas {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.primaryCta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 24px;
+  background: var(--color-gold);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  border-radius: 12px;
+  transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+  box-shadow: 0 4px 20px rgba(201,169,110,0.35);
+}
+.primaryCta:hover {
+  background: #b8923d;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(201,169,110,0.4);
+}
+
+.secondaryCta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px 24px;
+  border: 1.5px solid var(--color-cream-dark);
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-grey);
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+}
+.secondaryCta:hover {
+  border-color: var(--color-black);
+  color: var(--color-black);
+  background: var(--color-cream-dark);
+}
+
+/* ─── Navbar "Find Your Fit" Button ─────────────────────── */
+.navFitBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(201,169,110,0.1);
+  border: 1px solid rgba(201,169,110,0.3);
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #9a7a3f;
+  transition: background 0.2s, border-color 0.2s, transform 0.15s;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.navFitBtn:hover {
+  background: rgba(201,169,110,0.18);
+  border-color: rgba(201,169,110,0.55);
+  transform: translateY(-1px);
+}
+
+/* Mobile fit button inside drawer */
+.mobileFitBtn {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 16px 0;
+  font-size: 1.2rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--color-gold);
+  background: none;
+  border: none;
+  text-align: left;
+  transition: opacity 0.2s;
+  animation: linkFadeUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+}
+.mobileFitBtn:hover { opacity: 0.75; }
+
+@keyframes linkFadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Responsive ────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .modal { border-radius: 16px 16px 0 0; max-height: 92vh; }
+  .overlay { align-items: flex-end; padding: 0; }
+  .stepTitle { font-size: 1.45rem; }
+  .grid3 { grid-template-columns: 1fr 1fr; }
+}

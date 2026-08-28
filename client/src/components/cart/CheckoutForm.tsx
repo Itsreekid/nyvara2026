@@ -7,6 +7,9 @@ import { Check, Loader2, ShieldCheck, Truck, CreditCard } from 'lucide-react';
 import styles from './CheckoutForm.module.css';
 import { fbEvent, trackPurchase } from '@/components/analytics/FacebookPixel';
 import { buildPurchaseContents } from '@/lib/meta-purchase';
+import { persistMetaIdentity } from '@/lib/meta-identity';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 
 const CITIES = [
   'Ariana', 'Béja', 'Ben Arous', 'Bizerte', 'Gabès', 'Gafsa', 'Jendouba', 'Kairouan',
@@ -21,6 +24,8 @@ interface CheckoutFormProps {
 export default function CheckoutForm({ onSuccess }: CheckoutFormProps) {
   const { items, total, clearCart } = useCart();
   const { createOrder, loading } = useCreateOrder();
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
   const [errorLocal, setErrorLocal] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -70,6 +75,16 @@ const handleSubmit = async (e: React.FormEvent) => {
       return;
     }
     setErrorLocal(null);
+
+    // ── Persist identity to localStorage before firing CAPI events ──────────
+    // This is a fail-safe fallback. onBlur handlers will have already saved
+    // most fields as the user typed; this covers fields not yet blurred.
+    persistMetaIdentity({
+      email:     formData.email,
+      phone:     formData.telephone,
+      firstName: formData.prenom,
+      lastName:  formData.nom,
+    });
 
     // Enrich InitiateCheckout with user data right before proceeding
     const formContents = buildPurchaseContents(items);
@@ -137,10 +152,10 @@ const handleSubmit = async (e: React.FormEvent) => {
     <form className={styles.form} onSubmit={handleSubmit}>
       {/* SECTION: Livraison */}
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Livraison</h3>
+        <h3 className={styles.sectionTitle}>{t('checkout.shippingInfoTitle')}</h3>
         
         <div className={styles.inputGroup}>
-          <label className={styles.checkboxLabel}>Pays/région</label>
+          <label className={styles.checkboxLabel}>{t('checkout.country')}</label>
           <select 
             name="pays" 
             className={`${styles.input} ${styles.select}`}
@@ -156,21 +171,31 @@ const handleSubmit = async (e: React.FormEvent) => {
             <input
               type="text"
               name="prenom"
-              placeholder="Prénom (optionnel)"
+              placeholder={t('checkout.firstName')}
               className={styles.input}
               value={formData.prenom}
               onChange={handleChange}
+              onBlur={(e) => {
+                if (e.target.value.trim()) {
+                  persistMetaIdentity({ firstName: e.target.value });
+                }
+              }}
             />
           </div>
           <div className={styles.inputGroup}>
             <input
               type="text"
               name="nom"
-              placeholder="Nom"
+              placeholder={t('checkout.lastName')}
               className={styles.input}
               value={formData.nom}
               onChange={handleChange}
               required
+              onBlur={(e) => {
+                if (e.target.value.trim()) {
+                  persistMetaIdentity({ lastName: e.target.value });
+                }
+              }}
             />
           </div>
         </div>
@@ -179,7 +204,7 @@ const handleSubmit = async (e: React.FormEvent) => {
           <input
             type="text"
             name="adresse"
-            placeholder="Adresse"
+            placeholder={t('checkout.addressPlaceholder')}
             className={styles.input}
             value={formData.adresse}
             onChange={handleChange}
@@ -192,7 +217,7 @@ const handleSubmit = async (e: React.FormEvent) => {
             <input
               type="text"
               name="code_postal"
-              placeholder="Code postal (facultatif)"
+              placeholder={t('checkout.postalCode')}
               className={styles.input}
               value={formData.code_postal}
               onChange={handleChange}
@@ -206,7 +231,7 @@ const handleSubmit = async (e: React.FormEvent) => {
               onChange={handleChange}
               required
             >
-              <option value="" disabled>Sélectionnez une ville</option>
+              <option value="" disabled>{t('checkout.cityPlaceholder')}</option>
               {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
@@ -216,11 +241,16 @@ const handleSubmit = async (e: React.FormEvent) => {
           <input
             type="tel"
             name="telephone"
-            placeholder="Téléphone"
+            placeholder={t('checkout.phonePlaceholder')}
             className={styles.input}
             value={formData.telephone}
             onChange={handleChange}
             required
+            onBlur={(e) => {
+              if (e.target.value.trim()) {
+                persistMetaIdentity({ phone: e.target.value });
+              }
+            }}
           />
         </div>
 
@@ -228,24 +258,29 @@ const handleSubmit = async (e: React.FormEvent) => {
           <input
             type="email"
             name="email"
-            placeholder="E-mail pour le suivi"
+            placeholder={t('checkout.emailPlaceholder')}
             className={styles.input}
             value={formData.email}
             onChange={handleChange}
             required
+            onBlur={(e) => {
+              if (e.target.value.includes('@')) {
+                persistMetaIdentity({ email: e.target.value });
+              }
+            }}
           />
         </div>
 
-        <label className={styles.checkboxGroup}>
-          <input
-            type="checkbox"
-            name="saveInfo"
-            className={styles.checkbox}
-            checked={formData.saveInfo}
-            onChange={handleChange}
-          />
-          <span className={styles.checkboxLabel}>Sauvegarder mes coordonnées pour la prochaine fois</span>
-        </label>
+        <label className={styles.checkboxLabel}>
+            <input
+              type="checkbox"
+              name="saveInfo"
+              checked={formData.saveInfo}
+              onChange={handleChange}
+              className={styles.checkbox}
+            />
+            <span>{t('checkout.saveInfo')}</span>
+          </label>
       </div>
 
       {/* SECTION: Mode d'expédition */}
@@ -264,46 +299,52 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       {/* SECTION: Paiement */}
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>
-          <CreditCard size={18} style={{ marginRight: '8px' }} />
-          Paiement
-        </div>
-        <div className={styles.infoBox}>
-          <p className={styles.infoText}>Toutes les transactions sont sécurisées et chiffrées.</p>
-        </div>
-        <div className={`${styles.paymentOption} ${styles.paymentActive}`}>
-          <div className={styles.optionLabel}>
-            <span className={styles.optionTitle}>Paiement à la livraison</span>
-            <span className={styles.infoText}>Payez en espèces dès réception de votre commande.</span>
+        <h3 className={styles.sectionTitle}>{t('checkout.paymentTitle')}</h3>
+        <p className={styles.sectionSubtitle}>{t('checkout.paymentSubtitle')}</p>
+
+        <div className={styles.paymentMethod}>
+          <div className={styles.paymentMethodHeader}>
+            <span className={styles.radioGroup}>
+              <input type="radio" checked readOnly className={styles.radio} />
+              <span className={styles.methodName}>{t('checkout.codTitle')}</span>
+            </span>
+            <CreditCard size={20} className={styles.methodIcon} />
+          </div>
+          <div className={styles.paymentMethodBody}>
+            <ShieldCheck size={24} className={styles.shieldIcon} />
+            <p>{t('checkout.codDesc')}</p>
           </div>
         </div>
       </div>
 
       {/* SECTION: Adresse de facturation */}
       <div className={styles.section}>
-        <h3 className={styles.sectionTitle}>Adresse de facturation</h3>
-        <div className={`${styles.paymentOption} ${styles.paymentActive}`}>
-          <div className={styles.checkboxGroup}>
-            <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: 'var(--color-gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white' }} />
-            </div>
-            <span className={styles.checkboxLabel}>Identique à l'adresse de livraison</span>
+        <h3 className={styles.sectionTitle}>{t('checkout.billingTitle')}</h3>
+        
+        <div className={styles.paymentMethod}>
+          <div className={styles.paymentMethodHeader}>
+            <span className={styles.radioGroup}>
+              <input type="radio" checked readOnly className={styles.radio} />
+              <span className={styles.methodName}>{t('checkout.billingSame')}</span>
+            </span>
           </div>
         </div>
       </div>
 
       {errorLocal && <p style={{ color: 'var(--color-error)', fontSize: '13px', textAlign: 'center' }}>{errorLocal}</p>}
 
-      <button type="submit" className={styles.submitBtn} disabled={loading || items.length === 0 || isSubmitting}>
-        {loading ? (
-          <>
-            <Loader2 className="animate-spin" size={20} />
+      <button 
+        type="submit" 
+        className={styles.submitBtn}
+        disabled={isSubmitting || loading}
+      >
+        {isSubmitting || loading ? (
+          <span className={styles.loadingState}>
+            <Loader2 className={styles.spinner} size={20} />
             Traitement...
-          </>
+          </span>
         ) : (
-          <>
-            Valider le paiement
-          </>
+          t('checkout.confirmOrderBtn')
         )}
       </button>
 

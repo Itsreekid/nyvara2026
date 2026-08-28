@@ -37,11 +37,17 @@ function getUnitPrice(item: OrderItem): number {
 }
 
 function findColor(item: OrderItem): ColorOption | undefined {
-  return item.products?.color_options?.find(
-    (co: ColorOption) => 
-      (item.selected_color_name && co.name === item.selected_color_name) ||
-      (item.selected_color_hex1 && co.hex1 === item.selected_color_hex1)
-  );
+  const colors = item.products?.color_options;
+  if (!colors || colors.length === 0) return undefined;
+  // Prefer name match first (most specific), then hex1 as fallback
+  if (item.selected_color_name) {
+    const byName = colors.find((co: ColorOption) => co.name === item.selected_color_name);
+    if (byName) return byName;
+  }
+  if (item.selected_color_hex1) {
+    return colors.find((co: ColorOption) => co.hex1 === item.selected_color_hex1);
+  }
+  return undefined;
 }
 
 export default function OrderDetailsDrawer({
@@ -67,12 +73,12 @@ export default function OrderDetailsDrawer({
       setActiveTab('summary');
       setHistoryOrders([]);
       setExpandedHistoryId(null);
-    } else if (isOpen && mode === 'create' && products.length === 0) {
+    } else if (isOpen && (mode === 'create' || isEditing) && products.length === 0) {
       supabase.from('products').select('id, title, price, discount, image_url, color_options').order('title').then(({ data }) => {
         if (data) setProducts(data);
       });
     }
-  }, [isOpen, mode, products.length]);
+  }, [isOpen, mode, isEditing, products.length]);
 
   React.useEffect(() => {
     if (activeTab === 'history' && order?.phone) {

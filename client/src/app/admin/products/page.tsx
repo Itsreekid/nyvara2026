@@ -8,7 +8,7 @@ import type { Product, Category, ColorOption, QuantityBreak } from '@/types';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import ImageUpload from '@/components/admin/ImageUpload';
-import { PlusCircle, Trash2, ImageIcon, Loader2 } from 'lucide-react';
+import { PlusCircle, Trash2, ImageIcon, Loader2, Sparkles } from 'lucide-react';
 import adminStyles from '../admin.module.css';
 import styles from './products.module.css';
 
@@ -31,6 +31,10 @@ type FormState = {
   review_count: string;
   is_active: boolean;
   allow_unlimited_stock: boolean;
+  frame_shape: string;
+  style_vibe: string;
+  optical_fit: string;
+  ideal_faces: string[];
 };
 
 const emptyForm: FormState = {
@@ -38,6 +42,7 @@ const emptyForm: FormState = {
   description: '', image_url: '', gender: 'unisex', category_id: '',
   badge: '', features: '', rating: '', review_count: '',
   is_active: true, allow_unlimited_stock: false,
+  frame_shape: '', style_vibe: '', optical_fit: '', ideal_faces: [],
 };
 
 interface SpecRow { key: string; value: string; }
@@ -50,6 +55,14 @@ export default function AdminProductsPage() {
   const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // ── AI Vision state ───────────────────────────────────────────────────────
+  const [isAnalyzing,   setIsAnalyzing]   = useState(false);
+  const [mainAiProgress, setMainAiProgress] = useState<number | null>(null);
+  const [analyzingColorIndex, setAnalyzingColorIndex] = useState<number | null>(null);
+  const [variantAiProgress, setVariantAiProgress] = useState<number | null>(null);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  const [aiFilledFields, setAiFilledFields] = useState<Set<string>>(new Set());
 
   // Modal
   const [modalOpen, setModalOpen]         = useState(false);
@@ -84,11 +97,20 @@ export default function AdminProductsPage() {
 
   const openAddModal = () => {
     setEditingProduct(null);
-    setFormData(emptyForm);
+    
+    // Default category to "Lunettes solaires" if it exists in the fetched categories
+    const sunCat = categories.find(c => c.name.toLowerCase().includes('solaire'));
+    setFormData({ ...emptyForm, category_id: sunCat ? sunCat.id : '' });
+
     setGalleryImages([]);
     setSpecRows([]);
     setColorOptions([]);
     setQuantityBreaks([]);
+    setAiSuggestions([]);
+    setAiFilledFields(new Set());
+    setIsAnalyzing(false);
+    setMainAiProgress(null);
+    setVariantAiProgress(null);
     setModalOpen(true);
   };
 
@@ -113,6 +135,10 @@ export default function AdminProductsPage() {
       review_count: p.review_count != null ? String(p.review_count): '',
       is_active:    p.is_active ?? true,
       allow_unlimited_stock: p.allow_unlimited_stock ?? false,
+      frame_shape:  p.frame_shape  ?? '',
+      style_vibe:   p.style_vibe   ?? '',
+      optical_fit:  p.optical_fit  ?? '',
+      ideal_faces:  p.ideal_faces  ?? [],
     });
     // Specs rows
     const specs = (p.specs ?? {}) as Record<string, string>;
@@ -168,6 +194,10 @@ export default function AdminProductsPage() {
       quantity_breaks: quantityBreaks.length > 0 ? quantityBreaks : null,
       is_active:    formData.is_active,
       allow_unlimited_stock: formData.allow_unlimited_stock,
+      frame_shape:  formData.frame_shape  || null,
+      style_vibe:   formData.style_vibe   || null,
+      optical_fit:  formData.optical_fit  || null,
+      ideal_faces:  formData.ideal_faces && formData.ideal_faces.length > 0 ? formData.ideal_faces : null,
     };
 
     const { error } = editingProduct
@@ -230,9 +260,293 @@ export default function AdminProductsPage() {
     return sellingPrice - p.cost_price;
   };
 
+
   const set = (field: keyof FormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
       setFormData(prev => ({ ...prev, [field]: e.target.value }));
+
+  // ── AI Frame Analysis ─────────────────────────────────────────────────────
+  const handleAIFrameAnalysis = (file: File) => {
+    setIsAnalyzing(true);
+    setMainAiProgress(0);
+    setAiSuggestions([]);
+    setAiFilledFields(new Set());
+
+    const progressInterval = setInterval(() => {
+      setMainAiProgress(p => p !== null && p < 99 ? p + 3 : p);
+    }, 500);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rawBase64 = ev.target?.result as string;
+      if (!rawBase64) { 
+        clearInterval(progressInterval);
+        setIsAnalyzing(false); 
+        setMainAiProgress(null);
+        return; 
+      }
+
+      // 1. Create an off-screen image to resize (avoids huge 4MB payloads hitting API limits)
+      const img = new window.Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // Vision models don't need 4K images
+        
+        let width = img.width;
+        let height = img.height;
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { setIsAnalyzing(false); return; }
+        
+        ctx.drawImage(img, 0, 0, width, height);
+        // 2. Compress to 80% quality JPEG (~100-200KB payload instead of 5MB+)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+        try {
+          const res = await fetch('/api/analyze-glasses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: compressedBase64 }),
+          });
+
+          const json = await res.json();
+          if (!json.success || !json.data) {
+            console.warn('[AI Frame Analysis] API responded with failure:', json.error);
+            clearInterval(progressInterval);
+            setIsAnalyzing(false);
+            setMainAiProgress(null);
+            return;
+          }
+
+          const d = json.data;
+          const filled = new Set<string>();
+
+        setFormData(prev => {
+          const next = { ...prev };
+
+          // ── Identity ──────────────────────────────────────────────────────
+          if (d.name_suggestions?.[0]) {
+            next.title = d.name_suggestions[0];
+            filled.add('title');
+          }
+
+          // ── Pricing ───────────────────────────────────────────────────────
+          if (d.price_original != null) {
+            next.price = String(d.price_original);
+            filled.add('price');
+          }
+          if (d.price_discounted != null) {
+            next.final_price = String(d.price_discounted);
+            filled.add('final_price');
+          }
+          if (d.cost_price != null) {
+            next.cost_price = String(d.cost_price);
+            filled.add('cost_price');
+          }
+
+          // ── Inventory ─────────────────────────────────────────────────────
+          if (d.stock_initial != null) {
+            next.stock = String(d.stock_initial);
+            filled.add('stock');
+          }
+
+          // ── Classification ────────────────────────────────────────────────
+          if (d.gender && ['unisex', 'homme', 'femme'].includes(d.gender)) {
+            next.gender = d.gender;
+            filled.add('gender');
+          }
+
+          // ── Promo badge (SHORT string, not the long description) ──────────
+          if (d.promo_badge) {
+            next.badge = d.promo_badge;
+            filled.add('badge');
+          }
+
+          // ── Ratings ───────────────────────────────────────────────────────
+          if (d.rating_score != null) {
+            next.rating = String(d.rating_score);
+            filled.add('rating');
+          }
+          if (d.rating_count != null) {
+            next.review_count = String(d.rating_count);
+            filled.add('review_count');
+          }
+
+          // ── Copy ──────────────────────────────────────────────────────────
+          if (d.highlights_bullets) {
+            next.features = d.highlights_bullets;
+            filled.add('features');
+          }
+          if (d.full_description) {
+            next.description = d.full_description;
+            filled.add('description');
+          }
+
+          // ── Quiz & Fit ────────────────────────────────────────────────────
+          if (d.frame_shape) {
+            next.frame_shape = d.frame_shape;
+            filled.add('frame_shape');
+          }
+          if (d.style_vibe) {
+            next.style_vibe = d.style_vibe;
+            filled.add('style_vibe');
+          }
+          if (d.optical_fit) {
+            next.optical_fit = d.optical_fit;
+            filled.add('optical_fit');
+          }
+          if (Array.isArray(d.ideal_faces)) {
+            next.ideal_faces = d.ideal_faces;
+            filled.add('ideal_faces');
+          }
+
+          return next;
+        });
+
+        // ── Name suggestion chips (all 3) ─────────────────────────────────
+        if (Array.isArray(d.name_suggestions)) {
+          setAiSuggestions(d.name_suggestions);
+        }
+
+        // ── Technical specs array → specRows ──────────────────────────────
+        // New schema: d.technical_specs = [{ key, value }, ...]
+        // Fallback: build from flat fields (old schema compat)
+        if (Array.isArray(d.technical_specs) && d.technical_specs.length > 0) {
+          const validRows: SpecRow[] = d.technical_specs
+            .filter((r: { key?: string; value?: string }) => r?.key && r?.value)
+            .map((r: { key: string; value: string }) => ({ key: r.key, value: r.value }));
+          if (validRows.length > 0) {
+            setSpecRows(validRows);
+            filled.add('specs');
+          }
+        }
+
+        // ── Color Swatch Extraction ───────────────────────────────────────
+        if (d.color_analysis) {
+          setColorOptions([{
+            id: 'temp-ai-' + Date.now(),
+            name: d.color_analysis.variant_name || 'Couleur 1',
+            hex1: d.color_analysis.primary_hex || '#000000',
+            hex2: d.color_analysis.secondary_hex || null,
+            image_url: '', // Left empty so user can upload later
+            isAvailable: true
+          }]);
+          filled.add('color_options');
+        }
+
+        setAiFilledFields(filled);
+      } catch (err) {
+        console.warn('[AI Frame Analysis] Silent fail:', err);
+      } finally {
+        clearInterval(progressInterval);
+        setMainAiProgress(100);
+        setTimeout(() => {
+          setIsAnalyzing(false);
+          setMainAiProgress(null);
+        }, 800);
+      }
+      }; // img.onload
+      img.src = rawBase64;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ── AI Color Variant Analysis ─────────────────────────────────────────────
+  const handleVariantImageAI = (file: File, variantIndex: number) => {
+    setAnalyzingColorIndex(variantIndex);
+    setVariantAiProgress(0);
+
+    const progressInterval = setInterval(() => {
+      setVariantAiProgress(p => p !== null && p < 99 ? p + 3 : p);
+    }, 500);
+
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rawBase64 = ev.target?.result as string;
+      if (!rawBase64) { 
+        clearInterval(progressInterval);
+        setAnalyzingColorIndex(null); 
+        setVariantAiProgress(null);
+        return; 
+      }
+
+      const img = new window.Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        let width = img.width, height = img.height;
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) { setAnalyzingColorIndex(null); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+
+        try {
+          const res = await fetch('/api/analyze-glasses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageBase64: compressedBase64 }),
+          });
+          const json = await res.json();
+          if (!json.success || !json.data || !json.data.color_analysis) {
+            clearInterval(progressInterval);
+            setAnalyzingColorIndex(null);
+            setVariantAiProgress(null);
+            return;
+          }
+          
+          const ca = json.data.color_analysis;
+          setColorOptions(prev => {
+            const updated = [...prev];
+            if (updated[variantIndex]) {
+              updated[variantIndex] = {
+                ...updated[variantIndex],
+                name: ca.variant_name || updated[variantIndex].name,
+                hex1: ca.primary_hex || updated[variantIndex].hex1,
+                hex2: ca.secondary_hex !== undefined ? ca.secondary_hex : updated[variantIndex].hex2
+              };
+            }
+            return updated;
+          });
+        } catch (err) {
+          console.warn('[AI Color Analysis] Silent fail:', err);
+        } finally {
+          clearInterval(progressInterval);
+          setVariantAiProgress(100);
+          setTimeout(() => {
+            setAnalyzingColorIndex(null);
+            setVariantAiProgress(null);
+          }, 800);
+        }
+      };
+      img.src = rawBase64;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Sparkle badge helper — renders next to label when field was AI-filled
+  const AiBadge = ({ field }: { field: string }) =>
+    aiFilledFields.has(field)
+      ? <span title="Rempli automatiquement par l'IA" style={{
+          display: 'inline-flex', alignItems: 'center', gap: '2px',
+          fontSize: '10px', color: '#7c5cfc', fontWeight: 600,
+          background: '#ede9fe', borderRadius: '4px',
+          padding: '1px 6px', marginLeft: '6px', verticalAlign: 'middle',
+        }}>
+          <Sparkles size={10} /> IA
+        </span>
+      : null;
 
   if (loading) return <div className={adminStyles.contentArea}>Chargement...</div>;
 
@@ -324,8 +638,31 @@ export default function AdminProductsPage() {
       >
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.inputGroup}>
-            <label>Nom du produit</label>
+            <label>Nom du produit <AiBadge field="title" /></label>
             <input required type="text" className={styles.input} value={formData.title} onChange={set('title')} />
+            {/* AI name suggestion chips */}
+            {aiSuggestions.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                {aiSuggestions.map((name, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setFormData(prev => ({ ...prev, title: name }))}
+                    title="Cliquer pour utiliser ce nom"
+                    style={{
+                      padding: '4px 12px', borderRadius: '20px', fontSize: '12px', cursor: 'pointer',
+                      border: formData.title === name ? '1.5px solid #7c5cfc' : '1.5px solid #e5e7eb',
+                      background: formData.title === name ? '#ede9fe' : '#f9fafb',
+                      color: formData.title === name ? '#5b21b6' : '#374151',
+                      fontWeight: formData.title === name ? 600 : 400,
+                      transition: 'all 0.15s',
+                    }}
+                  >
+                    ✨ {name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={styles.priceRow}>
@@ -380,6 +717,85 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
+          {/* ── Quiz IA ──────────────────────────────────────────────────────── */}
+          <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '20px' }}>
+            <h4 style={{ margin: '0 0 16px 0', color: '#334155', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={16} color="#7c5cfc" /> Style & Morphologie (Quiz IA)
+            </h4>
+            <div className={styles.priceRow}>
+              <div className={styles.inputGroup}>
+                <label>Forme de monture <AiBadge field="frame_shape" /></label>
+                <select className={styles.input} value={formData.frame_shape} onChange={set('frame_shape')}>
+                  <option value="">— Sélectionner —</option>
+                  <option value="Rond Classique">Rond Classique</option>
+                  <option value="Aviateur">Aviateur</option>
+                  <option value="Œil-de-chat">Œil-de-chat</option>
+                  <option value="Carrée">Carrée</option>
+                  <option value="Rectangulaire">Rectangulaire</option>
+                  <option value="Géométrique">Géométrique</option>
+                </select>
+              </div>
+              <div className={styles.inputGroup}>
+                <label>Style / Vibe <AiBadge field="style_vibe" /></label>
+                <select className={styles.input} value={formData.style_vibe} onChange={set('style_vibe')}>
+                  <option value="">— Sélectionner —</option>
+                  <option value="Rétro">Rétro</option>
+                  <option value="Minimaliste">Minimaliste</option>
+                  <option value="Audacieux">Audacieux</option>
+                  <option value="Chic">Chic</option>
+                  <option value="Sport">Sport</option>
+                </select>
+              </div>
+              <div className={styles.inputGroup}>
+                <label>Taille / Coupe <AiBadge field="optical_fit" /></label>
+                <select className={styles.input} value={formData.optical_fit} onChange={set('optical_fit')}>
+                  <option value="">— Sélectionner —</option>
+                  <option value="Petit / Étroit">Petit / Étroit</option>
+                  <option value="Moyen / Standard">Moyen / Standard</option>
+                  <option value="Large">Large</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className={styles.inputGroup} style={{ marginTop: '12px' }}>
+              <label>Visages recommandés <AiBadge field="ideal_faces" /></label>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                {['Rond', 'Oval', 'Carré', 'Cœur'].map(face => {
+                  // Handle edge cases where AI returns Ovale instead of Oval, or Coeur instead of Cœur
+                  const isChecked = formData.ideal_faces.some(f => 
+                    f.toLowerCase() === face.toLowerCase() || 
+                    (face === 'Oval' && f.toLowerCase() === 'ovale') ||
+                    (face === 'Cœur' && f.toLowerCase() === 'coeur')
+                  );
+                  
+                  return (
+                    <label key={face} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setFormData(prev => {
+                            // Filter out exact match and normalizations
+                            let newFaces = prev.ideal_faces.filter(f => 
+                              f.toLowerCase() !== face.toLowerCase() &&
+                              !(face === 'Oval' && f.toLowerCase() === 'ovale') &&
+                              !(face === 'Cœur' && f.toLowerCase() === 'coeur')
+                            );
+                            if (checked) newFaces.push(face);
+                            return { ...prev, ideal_faces: newFaces };
+                          });
+                        }}
+                        style={{ accentColor: '#7c5cfc', width: '16px', height: '16px' }}
+                      />
+                      {face}
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           <div className={styles.priceRow}>
             <div className={styles.inputGroup} style={{ flexDirection: 'row', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--color-surface)', borderRadius: '8px', border: '1px solid var(--color-border)' }}>
               <label style={{ margin: 0 }}>Statut du produit :</label>
@@ -415,15 +831,51 @@ export default function AdminProductsPage() {
             </div>
           </div>
 
-          {/* Main image */}
+          {/* Main image — onFileSelected triggers AI analysis in parallel with R2 upload */}
           <div className={styles.inputGroup}>
             <label>Image principale</label>
             <ImageUpload
               value={formData.image_url}
               onChange={url => setFormData(prev => ({ ...prev, image_url: url }))}
               onUploading={status => setUploadingImage(status)}
+              onFileSelected={handleAIFrameAnalysis}
             />
           </div>
+
+          {/* AI Analyzing banner — shown while vision model is running */}
+          {isAnalyzing && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '10px',
+              padding: '12px 16px', borderRadius: '10px',
+              background: 'linear-gradient(135deg, #ede9fe 0%, #faf5ff 100%)',
+              border: '1px solid #c4b5fd', marginBottom: '4px', position: 'relative', overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute', top: 0, left: 0, bottom: 0, background: 'rgba(124, 92, 252, 0.1)',
+                width: `${mainAiProgress || 0}%`, transition: 'width 0.3s ease-out'
+              }} />
+              <Sparkles size={16} style={{ color: '#7c5cfc', flexShrink: 0, position: 'relative', zIndex: 1 }} />
+              <span style={{ fontSize: '13px', color: '#5b21b6', fontWeight: 500, position: 'relative', zIndex: 1 }}>
+                ⚡ IA en cours d’analyse de la monture…
+              </span>
+              <span style={{ color: '#7c5cfc', fontWeight: 700, marginLeft: 'auto', fontSize: '13px', position: 'relative', zIndex: 1 }}>
+                {mainAiProgress}%
+              </span>
+            </div>
+          )}
+
+          {/* Summary of AI-detected specs (shown after analysis) */}
+          {!isAnalyzing && aiFilledFields.size > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              padding: '10px 16px', borderRadius: '10px',
+              background: '#f0fdf4', border: '1px solid #86efac',
+              fontSize: '12px', color: '#166534', marginBottom: '4px',
+            }}>
+              <Sparkles size={13} style={{ color: '#16a34a', flexShrink: 0 }} />
+              <span><strong>Analyse IA terminée</strong> — champs remplis automatiquement. Vérifiez et corrigez si nécessaire.</span>
+            </div>
+          )}
 
           {/* Badge */}
           <div className={styles.priceRow}>
@@ -491,11 +943,14 @@ export default function AdminProductsPage() {
               {colorOptions.map((co, i) => (
                 <div key={co.id} className={styles.colorOptionCard}>
                   <div className={styles.colorOptionImage}>
-                    <p className={styles.pickerLabel} style={{ marginBottom: 4 }}>Image 1 <span style={{opacity:0.6}}>(vide = image principale)</span></p>
+                    <p className={styles.pickerLabel} style={{ marginBottom: 4, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      Image 1 <span style={{opacity:0.6}}>(vide = princ.)</span>
+                    </p>
                     <ImageUpload
                       value={co.image_url}
                       onChange={url => setColorOptions(prev => prev.map((c, idx) => idx === i ? { ...c, image_url: url } : c))}
                       onUploading={status => setUploadingImage(status)}
+                      onFileSelected={(file) => handleVariantImageAI(file, i)}
                       folder="colors"
                     />
                   </div>
@@ -523,6 +978,12 @@ export default function AdminProductsPage() {
                       <span style={{ color: co.isAvailable !== false ? 'var(--color-success)' : 'var(--color-error)', fontWeight: 600 }}>
                         {co.isAvailable !== false ? 'Actif' : 'Inactif'}
                       </span>
+                      {analyzingColorIndex === i && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#7c5cfc', fontSize: '0.85rem', fontWeight: 600, marginLeft: 'auto' }}>
+                          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                          {variantAiProgress}%
+                        </span>
+                      )}
                     </div>
 
                     <div className={styles.colorPickers}>
@@ -681,7 +1142,7 @@ export default function AdminProductsPage() {
           )}
 
           <div className={styles.inputGroup}>
-            <label>Description</label>
+            <label>Description <AiBadge field="description" /></label>
             <textarea className={styles.input} rows={3} value={formData.description} onChange={set('description')} />
           </div>
 

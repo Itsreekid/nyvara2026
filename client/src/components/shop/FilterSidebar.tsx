@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronUp, SlidersHorizontal, X } from 'lucide-react';
 import { useCategories } from '@/hooks/useOrders';
 import Button from '@/components/ui/Button';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import type { ProductFilters, Gender } from '@/types';
 import styles from './FilterSidebar.module.css';
 
@@ -13,24 +15,29 @@ interface FilterSidebarProps {
   onReset: () => void;
 }
 
-const GENDERS: { value: Gender | 'all'; label: string }[] = [
-  { value: 'all',    label: 'Tous' },
-  { value: 'homme',  label: 'Hommes' },
-  { value: 'femme',  label: 'Femmes' },
-  { value: 'unisex', label: 'Unisexe' },
-];
-
-const PRICE_RANGES = [
-  { label: 'Moins de 100 TND',   min: 0,   max: 100  },
-  { label: '100 – 250 TND',      min: 100, max: 250  },
-  { label: '250 – 500 TND',      min: 250, max: 500  },
-  { label: 'Plus de 500 TND',    min: 500, max: 9999 },
+const FRAME_SHAPES_MAP = [
+  { val: 'Rond Classique', key: 'shapes.round' },
+  { val: 'Aviateur', key: 'shapes.aviator' },
+  { val: 'Œil-de-chat', key: 'shapes.cateye' },
+  { val: 'Carrée', key: 'shapes.square' },
+  { val: 'Rectangulaire', key: 'shapes.rectangular' },
+  { val: 'Géométrique', key: 'shapes.geometric' },
 ];
 
 export default function FilterSidebar({ filters, onChange, onReset }: FilterSidebarProps) {
   const { categories, loading } = useCategories();
-  const [openSections, setOpenSections] = useState({ gender: true, category: true, price: true });
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
+
+  const [openSections, setOpenSections] = useState({ gender: true, category: true, price: true, frameShape: true });
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const GENDERS = [
+    { value: 'all',    label: t('shop.filterAll') },
+    { value: 'homme',  label: t('shop.filterMen') },
+    { value: 'femme',  label: t('shop.filterWomen') },
+    { value: 'unisex', label: t('shop.filterUnisex') },
+  ];
 
   const toggle = (section: keyof typeof openSections) =>
     setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
@@ -38,20 +45,17 @@ export default function FilterSidebar({ filters, onChange, onReset }: FilterSide
   const hasActiveFilters =
     (filters.gender && filters.gender !== 'all') ||
     filters.category_id ||
+    filters.frame_shape ||
     filters.min_price !== undefined ||
     filters.max_price !== undefined;
-
-  const selectedPriceRange = PRICE_RANGES.find(
-    r => r.min === filters.min_price && r.max === filters.max_price
-  );
 
   const content = (
     <div className={styles.sidebar}>
       <div className={styles.sidebarHeader}>
-        <span className={styles.sidebarTitle}>Filtres</span>
+        <span className={styles.sidebarTitle}>{t('shop.filterTitle')}</span>
         {hasActiveFilters && (
           <button className={styles.resetBtn} onClick={onReset}>
-            <X size={12} /> Effacer tout
+            <X size={12} /> {language === 'fr' ? 'Effacer tout' : 'امسح الكل'}
           </button>
         )}
       </div>
@@ -59,7 +63,7 @@ export default function FilterSidebar({ filters, onChange, onReset }: FilterSide
       {/* Gender */}
       <div className={styles.section}>
         <button className={styles.sectionToggle} onClick={() => toggle('gender')}>
-          <span>Genre</span>
+          <span>{t('shop.filterGender')}</span>
           {openSections.gender ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
         {openSections.gender && (
@@ -75,6 +79,42 @@ export default function FilterSidebar({ filters, onChange, onReset }: FilterSide
                   className={styles.radio}
                 />
                 <span className={styles.optionText}>{g.label}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Frame Shape */}
+      <div className={styles.section}>
+        <button className={styles.sectionToggle} onClick={() => toggle('frameShape')}>
+          <span>{t('shop.filterFrameShape')}</span>
+          {openSections.frameShape ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+        {openSections.frameShape && (
+          <div className={styles.options}>
+            <label className={styles.optionLabel}>
+              <input
+                type="radio"
+                name="frame_shape"
+                value=""
+                checked={!filters.frame_shape}
+                onChange={() => onChange({ ...filters, frame_shape: undefined })}
+                className={styles.radio}
+              />
+              <span className={styles.optionText}>{t('shop.filterAllShapes')}</span>
+            </label>
+            {FRAME_SHAPES_MAP.map(shape => (
+              <label key={shape.val} className={styles.optionLabel}>
+                <input
+                  type="radio"
+                  name="frame_shape"
+                  value={shape.val}
+                  checked={filters.frame_shape === shape.val}
+                  onChange={() => onChange({ ...filters, frame_shape: shape.val })}
+                  className={styles.radio}
+                />
+                <span className={styles.optionText}>{t(shape.key)}</span>
               </label>
             ))}
           </div>
@@ -111,41 +151,6 @@ export default function FilterSidebar({ filters, onChange, onReset }: FilterSide
                   className={styles.radio}
                 />
                 <span className={styles.optionText}>{cat.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Price */}
-      <div className={styles.section}>
-        <button className={styles.sectionToggle} onClick={() => toggle('price')}>
-          <span>Fourchette de prix</span>
-          {openSections.price ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </button>
-        {openSections.price && (
-          <div className={styles.options}>
-            <label className={styles.optionLabel}>
-              <input
-                type="radio"
-                name="price"
-                value=""
-                checked={!selectedPriceRange}
-                onChange={() => onChange({ ...filters, min_price: undefined, max_price: undefined })}
-                className={styles.radio}
-              />
-              <span className={styles.optionText}>Tout prix</span>
-            </label>
-            {PRICE_RANGES.map(r => (
-              <label key={r.label} className={styles.optionLabel}>
-                <input
-                  type="radio"
-                  name="price"
-                  checked={selectedPriceRange?.label === r.label}
-                  onChange={() => onChange({ ...filters, min_price: r.min, max_price: r.max })}
-                  className={styles.radio}
-                />
-                <span className={styles.optionText}>{r.label}</span>
               </label>
             ))}
           </div>

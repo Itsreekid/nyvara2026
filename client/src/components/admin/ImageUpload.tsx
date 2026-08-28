@@ -10,6 +10,8 @@ interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   onUploading: (isUploading: boolean) => void;
+  /** Optional: called with the raw File immediately on selection (before R2 upload). Use for AI analysis. */
+  onFileSelected?: (file: File) => void;
   folder?: 'products' | 'gallery' | 'colors';
 }
 
@@ -19,6 +21,7 @@ export default function ImageUpload({
   value,
   onChange,
   onUploading,
+  onFileSelected,
   folder = 'products',
 }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
@@ -59,6 +62,12 @@ export default function ImageUpload({
     }
 
     setErrorMessage('');
+
+    // Fire AI analysis hook immediately — non-blocking, runs in parallel with R2 upload
+    if (onFileSelected) {
+      try { onFileSelected(file); } catch { /* silent — never block the upload */ }
+    }
+
     onUploading(true);
     setPhase('uploading');
 

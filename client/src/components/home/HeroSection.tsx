@@ -3,9 +3,14 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowDown, Sparkles } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import styles from './HeroSection.module.css';
 
 export default function HeroSection() {
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
+
   return (
     <section className={styles.hero} aria-label="Hero">
 
@@ -23,47 +28,47 @@ export default function HeroSection() {
 
           <div className={styles.badge}>
             <Sparkles size={11} />
-            <span>Nouvelle Collection 2026</span>
+            <span>{t('hero.badge')}</span>
           </div>
 
           <h1 className={styles.headline}>
-            <span className={styles.headlineTop}>Voir le monde</span>
-            <span className={styles.headlineAccent}>autrement.</span>
+            <span className={styles.headlineTop}>{t('hero.title1')}</span>
+            <span className={styles.headlineAccent}>{t('hero.title2')}</span>
           </h1>
 
           <p className={styles.subline}>
-            Des lunettes de luxe taillées pour les visionnaires.
+            {t('hero.sub1')}
             <br />
-            Style. Précision. Fashion.
+            {t('hero.sub2')}
           </p>
 
           {/* Stats row */}
           <div className={styles.stats}>
             <div className={styles.statItem}>
               <span className={styles.statNum}>200+</span>
-              <span className={styles.statLabel}>Modèles</span>
+              <span className={styles.statLabel}>{t('hero.stat1')}</span>
             </div>
             <div className={styles.statDivider} />
             <div className={styles.statItem}>
               <span className={styles.statNum}>100%</span>
-              <span className={styles.statLabel}>Artisanal</span>
+              <span className={styles.statLabel}>{t('hero.stat2')}</span>
             </div>
             <div className={styles.statDivider} />
             <div className={styles.statItem}>
               <span className={styles.statNum}>48h</span>
-              <span className={styles.statLabel}>Livraison</span>
+              <span className={styles.statLabel}>{t('hero.stat3')}</span>
             </div>
           </div>
 
           <div className={styles.actions}>
             <Link href="/shop" className={styles.primaryCta}>
-              <span>Découvrir</span>
+              <span>{t('hero.primaryCta')}</span>
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                 <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </Link>
             <Link href="/shop" className={styles.secondaryCta}>
-              Explorer la Collection
+              {t('hero.secondaryCta')}
             </Link>
           </div>
         </div>
@@ -96,7 +101,7 @@ export default function HeroSection() {
             {/* Floating tag */}
             <div className={styles.floatTag}>
               <span className={styles.floatTagDot} />
-              <span>Collection Exclusive 2026</span>
+              <span>{t('hero.tag')}</span>
             </div>
 
             {/* Year watermark */}

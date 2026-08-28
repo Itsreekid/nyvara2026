@@ -3,13 +3,16 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
+import { getTranslation } from '@/locales/dictionary';
 import styles from './FrameCarousel.module.css';
 
-const FRAME_STYLES = [
+const FRAME_STYLES = (t: any) => [
   {
-    id: 'wayfarer',
-    name: 'Wayfarer',
-    description: 'Montures carrées iconiques avec une silhouette audacieuse et inétemporelle.',
+    id: 'square-classic',
+    originalName: 'Carrée',
+    name: t('shapes.square'),
+    description: t('shapesDesc.square'),
     shape: (
       <svg viewBox="0 0 260 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <rect x="10" y="15" width="100" height="70" rx="8" fill="none" stroke="currentColor" strokeWidth="5"/>
@@ -24,8 +27,9 @@ const FRAME_STYLES = [
   },
   {
     id: 'round',
-    name: 'Rond Classique',
-    description: 'Montures circulaires douces avec une personnalité rétro-chic.',
+    originalName: 'Rond Classique',
+    name: t('shapes.round'),
+    description: t('shapesDesc.round'),
     shape: (
       <svg viewBox="0 0 260 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <circle cx="65"  cy="50" r="45" fill="none" stroke="currentColor" strokeWidth="5"/>
@@ -40,8 +44,9 @@ const FRAME_STYLES = [
   },
   {
     id: 'aviator',
-    name: 'Aviateur',
-    description: "Verres en larme classiques nés du patrimoine de l'aviation.",
+    originalName: 'Aviateur',
+    name: t('shapes.aviator'),
+    description: t('shapesDesc.aviator'),
     shape: (
       <svg viewBox="0 0 260 110" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M20 35 Q20 95 65 95 Q110 95 110 35 Q110 15 65 15 Q20 15 20 35Z" fill="none" stroke="currentColor" strokeWidth="5"/>
@@ -56,8 +61,9 @@ const FRAME_STYLES = [
   },
   {
     id: 'cateye',
-    name: 'Œil-de-chat',
-    description: "Coins relevés qui ajoutent du drame et une touche féminine.",
+    originalName: 'Œil-de-chat',
+    name: t('shapes.cateye'),
+    description: t('shapesDesc.cateye'),
     shape: (
       <svg viewBox="0 0 260 100" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <path d="M10 60 Q10 25 55 18 Q100 25 100 60 Q100 90 55 90 Q10 90 10 60Z" fill="none" stroke="currentColor" strokeWidth="5"/>
@@ -74,11 +80,15 @@ const FRAME_STYLES = [
 
 export default function FrameCarousel() {
   const [current, setCurrent] = useState(0);
+  const { language } = useLanguage();
+  const t = (path: string) => getTranslation(language, path);
+  
+  const stylesList = FRAME_STYLES(t);
 
-  const prev = () => setCurrent(i => (i - 1 + FRAME_STYLES.length) % FRAME_STYLES.length);
-  const next = () => setCurrent(i => (i + 1) % FRAME_STYLES.length);
+  const prev = () => setCurrent(i => (i - 1 + stylesList.length) % stylesList.length);
+  const next = () => setCurrent(i => (i + 1) % stylesList.length);
 
-  const frame = FRAME_STYLES[current];
+  const frame = stylesList[current];
 
   return (
     <section className={styles.section}>
@@ -89,15 +99,26 @@ export default function FrameCarousel() {
 
       <div className={styles.inner}>
         <div className={styles.textCol}>
-          <p className={styles.eyebrow}>Choisissez Votre Monture</p>
-          <h2 className={styles.headline}>CHOISISSEZ VOTRE<br />STYLE DE MONTURE</h2>
-          <p className={styles.sub}>
-            Choisissez votre style de lunettes préféré<br />
-            et faites-en votre propre style.
+          <p className={styles.eyebrow}>{t('slider.eyebrow')}</p>
+          <h2 className={styles.headline} style={{ whiteSpace: 'pre-line' }}>{t('slider.title')}</h2>
+          <p className={styles.sub} style={{ whiteSpace: 'pre-line' }}>
+            {t('slider.sub')}
           </p>
-          <Link href={`/shop`} className={styles.cta}>
-            Personnaliser
-          </Link>
+          <button 
+            className={styles.cta} 
+            onClick={() => {
+              // Open modal and pass the suggested frame shape mapping
+              // Carrée -> square, Rond Classique -> round, Aviateur -> aviator, Œil-de-chat -> heart (closest match for cat-eye in FindYourFit)
+              let faceShape = 'round'; // fallback
+              if (frame.originalName === 'Carrée') faceShape = 'square';
+              else if (frame.originalName === 'Rond Classique') faceShape = 'round';
+              else if (frame.originalName === 'Aviateur') faceShape = 'heart';
+              else if (frame.originalName === 'Œil-de-chat') faceShape = 'heart';
+              window.dispatchEvent(new CustomEvent('openQuizModal', { detail: { faceShape } }));
+            }}
+          >
+            {t('slider.customizeBtn')}
+          </button>
         </div>
 
         <div className={styles.carouselCol}>
@@ -108,10 +129,14 @@ export default function FrameCarousel() {
 
           {/* Frame display */}
           <div className={styles.frameDisplay} key={frame.id}>
-            <div className={styles.frameSvgWrap}>
-              {frame.shape}
-            </div>
-            <p className={styles.frameName}>{frame.name}</p>
+            <Link href={`/shop?frame_shape=${encodeURIComponent(frame.originalName)}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+              <div className={styles.frameSvgWrap} style={{ cursor: 'pointer', transition: 'transform 0.2s', ':hover': { transform: 'scale(1.02)' } } as React.CSSProperties}>
+                {frame.shape}
+              </div>
+              <p className={styles.frameName} style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }}>
+                {frame.name}
+              </p>
+            </Link>
             <p className={styles.frameDesc}>{frame.description}</p>
           </div>
 
@@ -123,7 +148,7 @@ export default function FrameCarousel() {
 
       {/* Dots */}
       <div className={styles.dots} role="tablist" aria-label="Frame style selector">
-        {FRAME_STYLES.map((f, i) => (
+        {stylesList.map((f, i) => (
           <button
             key={f.id}
             className={`${styles.dot} ${i === current ? styles.dotActive : ''}`}
