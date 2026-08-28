@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { CreateOrderPayload, Category } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
-
 // ─── useCategories ────────────────────────────────────────────────────────────
 
 export function useCategories() {
@@ -12,7 +10,7 @@ export function useCategories() {
   const [loading, setLoading]       = useState(true);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/categories`)
+    fetch(`/api/categories`)
       .then(res => res.ok ? res.json() : [])
       .then((data: Category[]) => {
         setCategories(data);

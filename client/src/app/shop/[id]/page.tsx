@@ -2,8 +2,7 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import ProductDetail from './ProductDetail';
 import type { Product } from '@/types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+import pool from '@/lib/db';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -11,11 +10,24 @@ interface Props {
 
 async function fetchProduct(id: string) {
   try {
-    const res = await fetch(`${API_URL}/api/products/${id}`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return null;
-    return res.json();
+    const { rows } = await pool.query(
+      `SELECT p.*,
+              json_build_object('id', c.id, 'name', c.name) AS categories,
+              COALESCE(
+                json_agg(
+                  json_build_object('id', pi.id, 'image_url', pi.image_url, 'sort_order', pi.sort_order)
+                  ORDER BY pi.sort_order
+                ) FILTER (WHERE pi.id IS NOT NULL),
+                '[]'::json
+              ) AS gallery
+       FROM   products p
+       LEFT JOIN categories  c  ON c.id  = p.category_id
+       LEFT JOIN product_images pi ON pi.product_id = p.id
+       WHERE  p.id = $1
+       GROUP BY p.id, c.id`,
+      [id]
+    );
+    return rows[0] || null;
   } catch {
     return null;
   }
@@ -23,11 +35,16 @@ async function fetchProduct(id: string) {
 
 async function fetchRelated(id: string, categoryId: string) {
   try {
-    const res = await fetch(`${API_URL}/api/products/${id}/related`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return [];
-    return res.json();
+    const { rows } = await pool.query(
+      `SELECT p.*, json_build_object('id', c.id, 'name', c.name) AS categories
+       FROM   products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE  p.category_id = $1 AND p.id != $2
+       ORDER BY p.created_at DESC
+       LIMIT 4`,
+      [categoryId, id]
+    );
+    return rows;
   } catch {
     return [];
   }

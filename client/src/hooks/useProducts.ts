@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Product, ProductFilters, SortOption } from '@/types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
-
 const getActualPrice = (p: Product) => {
   const hasDiscount = p.discount != null && p.discount > 0;
   if (hasDiscount && p.price != null) {
@@ -48,7 +46,7 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
         // default: created_at DESC (server default)
       }
 
-      const res = await fetch(`${API_URL}/api/products?${params.toString()}`);
+      const res = await fetch(`/api/products?${params.toString()}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       let finalData: Product[] = await res.json();
@@ -115,7 +113,7 @@ export function useProduct(id: string) {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    fetch(`${API_URL}/api/products/${id}`)
+    fetch(`/api/products/${id}`)
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -135,7 +133,7 @@ export function useFeaturedProducts(limit = 6) {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/products`)
+    fetch(`/api/products`)
       .then(res => res.ok ? res.json() : [])
       .then((data: Product[]) => {
         setProducts(data.slice(0, limit));

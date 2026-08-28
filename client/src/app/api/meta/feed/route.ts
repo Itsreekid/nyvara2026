@@ -1,22 +1,23 @@
 import { NextResponse } from 'next/server';
 import { buildMetaCatalogXmlItem } from '@/lib/meta-catalog';
 import type { MetaCatalogProduct } from '@/lib/meta-catalog';
+import pool from '@/lib/db';
 
 const SITE_URL = 'https://nyvara.net';
-const API_URL  = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const res = await fetch(`${API_URL}/api/products`, { cache: 'no-store' });
+    const { rows } = await pool.query(
+      `SELECT p.*,
+              json_build_object('id', c.id, 'name', c.name) AS categories
+       FROM   products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       ORDER BY p.created_at DESC`
+    );
 
-    if (!res.ok) {
-      console.error('[Meta Feed] API error:', res.status, res.statusText);
-      return new NextResponse(`API error: ${res.statusText}`, { status: 502 });
-    }
-
-    const products: MetaCatalogProduct[] = await res.json();
+    const products: MetaCatalogProduct[] = rows;
 
     // Filter products that have a valid image and price
     const validProducts = products.filter(product => {
