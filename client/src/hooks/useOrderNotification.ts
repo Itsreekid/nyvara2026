@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import type { Order } from '@/types';
+
+const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 interface UseOrderNotificationOptions {
   onNewOrder: (order: Order) => void;
@@ -36,13 +37,11 @@ function playChaChingSound() {
     // "Cha" — lower note
     playTone(880,  now,        0.15, 0.4);
     playTone(1100, now,        0.15, 0.2);
-    // brief pause
     // "Ching" — higher, brighter bell
     playTone(1760, now + 0.18, 0.6,  0.5);
     playTone(2200, now + 0.18, 0.6,  0.25);
     playTone(2640, now + 0.22, 0.5,  0.15);
 
-    // Auto close context after sound
     setTimeout(() => ctx.close(), 1500);
   } catch {
     // Silently fail if Web Audio API not available
@@ -50,48 +49,45 @@ function playChaChingSound() {
 }
 
 export function useOrderNotification({ onNewOrder }: UseOrderNotificationOptions) {
-  // Track order IDs we've already seen so we don't fire on mount
-  const seenIds = useRef<Set<string>>(new Set());
+  const seenIds    = useRef<Set<string>>(new Set());
   const initialized = useRef(false);
 
   const handleNewOrder = useCallback((order: Order) => {
     if (seenIds.current.has(order.id)) return;
     seenIds.current.add(order.id);
-
-    // Only fire after initial load
     if (!initialized.current) return;
-
     playChaChingSound();
     onNewOrder(order);
   }, [onNewOrder]);
 
-  useEffect(() => {
-    // 1. Load recent order IDs to mark them as "seen" (no notification for old orders).
-    //    Limit to 1000 — we only need to know about recent orders, not every ID ever.
-    supabase
-      .from('orders')
-      .select('id')
-      .order('created_at', { ascending: false })
-      .limit(1000)
-      .then(({ data }) => {
-        if (data) data.forEach((o: { id: string }) => seenIds.current.add(o.id));
+  // Poll the admin orders API for new orders
+  const pollOrders = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/orders?archived=false&page=0&pageSize=100');
+      if (!res.ok) return;
+      const json = await res.json();
+      const orders: Order[] = json.data ?? [];
+
+      if (!initialized.current) {
+        // First poll — mark all existing orders as seen
+        orders.forEach(o => seenIds.current.add(o.id));
         initialized.current = true;
-      });
+        return;
+      }
 
-    // 2. Subscribe to Realtime INSERT events on orders table
-    const channel = supabase
-      .channel('admin-new-orders')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'orders' },
-        (payload) => {
-          handleNewOrder(payload.new as Order);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+      // Subsequent polls — trigger notification for unseen orders
+      orders.forEach(o => handleNewOrder(o));
+    } catch (e) {
+      // Silently ignore network errors during polling
+    }
   }, [handleNewOrder]);
+
+  useEffect(() => {
+    // Initial poll on mount
+    pollOrders();
+
+    // Recurring poll every POLL_INTERVAL_MS
+    const interval = setInterval(pollOrders, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [pollOrders]);
 }

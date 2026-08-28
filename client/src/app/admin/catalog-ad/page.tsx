@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { useProducts } from '@/hooks/useProducts';
 import type { Product } from '@/types';
-import { supabase } from '@/lib/supabase';
 import { buildMetaCatalogCsvRow, buildMetaCatalogXmlItem } from '@/lib/meta-catalog';
 import adminStyles from '@/app/admin/admin.module.css';
 import styles from './catalog-ad.module.css';
@@ -37,15 +36,14 @@ function buildCsv(products: Product[], galleryByProduct: Record<string, string[]
 async function fetchGalleryByProduct(productIds: string[]): Promise<Record<string, string[]>> {
   if (productIds.length === 0) return {};
 
-  const { data, error } = await supabase
-    .from('product_images')
-    .select('product_id, image_url')
-    .in('product_id', productIds)
-    .order('sort_order', { ascending: true });
+  const params = new URLSearchParams();
+  productIds.forEach(id => params.append('product_id', id));
 
-  if (error) throw new Error(error.message);
+  const res = await fetch(`/api/admin/product-images?${params.toString()}`);
+  if (!res.ok) return {};
+  const data: Array<{ product_id: string; image_url: string }> = await res.json();
 
-  return (data ?? []).reduce<Record<string, string[]>>((acc, row: any) => {
+  return data.reduce<Record<string, string[]>>((acc, row) => {
     if (!acc[row.product_id]) acc[row.product_id] = [];
     acc[row.product_id].push(row.image_url);
     return acc;

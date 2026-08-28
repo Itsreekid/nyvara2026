@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import bcrypt from 'bcryptjs';
-import supabaseAdmin from '@/lib/supabase-admin';
+import pool from '@/lib/db';
 
 // ── Login ─────────────────────────────────────────────────────────────────
 export async function loginAction(formData: FormData) {
@@ -13,13 +13,14 @@ export async function loginAction(formData: FormData) {
     return { error: 'Veuillez remplir tous les champs.' };
   }
 
-  const { data } = await supabaseAdmin
-    .from('admin_users')
-    .select('id, password_hash, role, full_name')
-    .eq('username', username)
-    .single();
-
-  const user: any = data;
+  const { rows } = await pool.query(
+    `SELECT id, password_hash, role, full_name
+     FROM   admin_users
+     WHERE  username = $1
+     LIMIT  1`,
+    [username]
+  );
+  const user = rows[0];
 
   if (!user) return { error: 'Identifiants incorrects.' };
 
@@ -46,13 +47,16 @@ export async function logoutAction() {
 
 // ── Get all users ─────────────────────────────────────────────────────────
 export async function getEmployeesAction() {
-  const { data, error } = await supabaseAdmin
-    .from('admin_users')
-    .select('id, username, full_name, role, created_at')
-    .order('created_at', { ascending: true });
-
-  if (error) return { error: 'Erreur de chargement.' };
-  return { data };
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, username, full_name, role, created_at
+       FROM   admin_users
+       ORDER  BY created_at ASC`
+    );
+    return { data: rows };
+  } catch {
+    return { error: 'Erreur de chargement.' };
+  }
 }
 
 // ── Add user ──────────────────────────────────────────────────────────────
@@ -68,24 +72,25 @@ export async function addEmployeeAction(formData: FormData) {
 
   const hash = await bcrypt.hash(password, 12);
 
-  const { error } = await supabaseAdmin.from('admin_users').insert({
-    username, password_hash: hash, role, full_name,
-  } as never);
-
-  if (error) {
-    if (error.code === '23505') return { error: "Ce nom d'utilisateur est déjà pris." };
+  try {
+    await pool.query(
+      `INSERT INTO admin_users (username, password_hash, role, full_name)
+       VALUES ($1, $2, $3, $4)`,
+      [username, hash, role, full_name]
+    );
+    return { success: true };
+  } catch (err: any) {
+    if (err.code === '23505') return { error: "Ce nom d'utilisateur est déjà pris." };
     return { error: 'Erreur lors de la création.' };
   }
-  return { success: true };
 }
 
 // ── Remove user ───────────────────────────────────────────────────────────
 export async function removeEmployeeAction(id: string) {
-  const { error } = await supabaseAdmin
-    .from('admin_users')
-    .delete()
-    .eq('id', id);
-
-  if (error) return { error: 'Erreur lors de la suppression.' };
-  return { success: true };
+  try {
+    await pool.query(`DELETE FROM admin_users WHERE id = $1`, [id]);
+    return { success: true };
+  } catch {
+    return { error: 'Erreur lors de la suppression.' };
+  }
 }

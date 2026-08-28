@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import supabaseAdmin from '@/lib/supabase-admin';
+import pool from '@/lib/db';
 
 /**
  * POST /api/tracking/stats
  * Body: { product_id: string, event: 'view' | 'cart' | 'order' }
  *
- * Delegates to the PL/pgSQL function `increment_product_stat` which handles
- * the UPSERT + increment atomically — avoids race conditions on concurrent hits.
- *
+ * Calls the PL/pgSQL function `increment_product_stat` which handles
+ * the UPSERT + increment atomically.
  * Designed to be called with navigator.sendBeacon so it returns quickly.
  */
 export async function POST(req: NextRequest) {
@@ -33,15 +32,14 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { error } = await (supabaseAdmin.rpc as any)('increment_product_stat', {
-    p_id: product_id,
-    event_type: event,
-  });
-
-  if (error) {
-    console.error('[Tracking Stats] RPC error:', error.message);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    await pool.query(
+      `SELECT increment_product_stat($1, $2)`,
+      [product_id, event]
+    );
+    return NextResponse.json({ ok: true }, { status: 200 });
+  } catch (err: any) {
+    console.error('[Tracking Stats] pg error:', err.message);
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true }, { status: 200 });
 }

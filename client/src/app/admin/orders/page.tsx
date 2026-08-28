@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { ShoppingBag, Archive, ArchiveRestore, CheckSquare, Eye, Truck } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import OrderDetailsDrawer from '@/components/admin/OrderDetailsDrawer';
 import StatusDropdown from '@/components/admin/StatusDropdown';
 import type { Order, ColorOption } from '@/types';
@@ -54,24 +53,18 @@ export default function AdminOrdersPage() {
   const [countdown, setCountdown] = useState(AUTO_SYNC_INTERVAL / 1000);
   const ordersRef                 = useRef<OrderWithItems[]>([]);
 
-  // Tabs: active vs archived
   const [viewArchived, setViewArchived] = useState(false);
+  const [selected, setSelected]         = useState<Set<string>>(new Set());
 
-  // Selection
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-
-  // Items modal
-  const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder]           = useState<OrderWithItems | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen]             = useState(false);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
   // Sync selected order with latest data from table
   useEffect(() => {
     if (selectedOrder) {
       const updated = orders.find(o => o.id === selectedOrder.id);
-      if (updated && updated !== selectedOrder) {
-        setSelectedOrder(updated);
-      }
+      if (updated && updated !== selectedOrder) setSelectedOrder(updated);
     }
   }, [orders, selectedOrder]);
 
@@ -80,15 +73,39 @@ export default function AdminOrdersPage() {
   const [pageSize, setPageSize]     = useState(10);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Search Filter
+  // Search
   const [searchQuery, setSearchQuery] = useState('');
+  useEffect(() => { setPage(0); }, [searchQuery]);
 
-  // Reset page to 0 when search query changes
-  useEffect(() => {
-    setPage(0);
-  }, [searchQuery]);
+  // ── Fetch orders ─────────────────────────────────────────────────────────────
+  const fetchOrders = useCallback(async () => {
+    const params = new URLSearchParams({
+      archived: String(viewArchived),
+      page:     String(page),
+      pageSize: String(pageSize),
+    });
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
 
-  // ── Confirm & dispatch ─────────────────────────────────────────────────────
+    try {
+      const res = await fetch(`/api/admin/orders?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+
+      const data: OrderWithItems[] = json.data ?? [];
+      setOrders(data);
+      ordersRef.current = data;
+      setTotalCount(json.count ?? 0);
+    } catch (err: any) {
+      console.error('[AdminOrders] fetchOrders error:', err.message);
+    } finally {
+      setLoading(false);
+      setSelected(new Set());
+    }
+  }, [viewArchived, page, pageSize, searchQuery]);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  // ── Confirm & dispatch to Cosmos ──────────────────────────────────────────────
   const confirmOrderAndDispatch = async (order: OrderWithItems) => {
     if (!confirm("Confirmer cette commande et l'envoyer à Cosmos ?")) return;
     setSyncing(true);
@@ -108,122 +125,43 @@ export default function AdminOrdersPage() {
       });
       if (cosmosRes.ok) {
         const { data: delivery } = await cosmosRes.json();
-        await supabase.from('orders').update({
-          cosmos_barcode:      delivery.barcode,
-          cosmos_label_url:    delivery.labelUrl,
-          cosmos_label_pdf_url: delivery.labelPdfUrl,
-          cosmos_status:       delivery.status || 'to-be-picked',
-          call_status:         'confirmed',   // Set business state to confirmed on first dispatch to Cosmos
-        } as never).eq('id', order.id);
+        // Update the order with cosmos fields via admin PATCH
+        await fetch(`/api/admin/orders/${order.id}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cosmos_barcode:       delivery.barcode,
+            cosmos_label_url:     delivery.labelUrl,
+            cosmos_label_pdf_url: delivery.labelPdfUrl,
+            cosmos_status:        delivery.status || 'to-be-picked',
+            call_status:          'confirmed',
+          }),
+        });
         await fetchOrders();
-      } else { alert('Erreur Cosmos: ' + await cosmosRes.text()); }
-    } catch (err: any) { alert('Erreur: ' + err.message); }
+      } else {
+        alert('Erreur Cosmos: ' + await cosmosRes.text());
+      }
+    } catch (err: any) {
+      alert('Erreur: ' + err.message);
+    }
     setSyncing(false);
   };
 
-  // ── Update call status ────────────────────────────────────────────────────
+  // ── Update call status ────────────────────────────────────────────────────────
   const updateCallStatus = async (orderId: string, newStatus: string) => {
-    await supabase.from('orders').update({ call_status: newStatus } as never).eq('id', orderId);
-    setOrders(prev =>
-      prev.map(o => o.id === orderId ? { ...o, call_status: newStatus } : o)
-    );
+    await fetch(`/api/admin/orders/${orderId}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ call_status: newStatus }),
+    });
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, call_status: newStatus } : o));
   };
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
-  const fetchOrders = useCallback(async () => {
-    const from = page * pageSize;
-    const to   = from + pageSize - 1;
-
-    let queryBuilder = supabase
-      .from('orders')
-      .select('*, order_items(id, product_id, quantity, selected_color_name, selected_color_hex1, selected_color_hex2, quantity_break_price, products(id, title, price, discount, image_url, color_options, quantity_breaks))', { count: 'exact' })
-      .eq('archived', viewArchived);
-
-    if (searchQuery.trim()) {
-      const q = `%${searchQuery.trim()}%`;
-      queryBuilder = queryBuilder.or(`customer_name.ilike.${q},phone.ilike.${q}`);
-    }
-
-    const { data, count } = await queryBuilder
-      .order('created_at', { ascending: false })
-      .range(from, to);
-
-    if (data && data.length > 0) {
-      const normalizePhone = (p: string | null | undefined) => {
-        if (!p) return '';
-        let num = p.replace(/[^\d+]/g, '');
-        if (num.startsWith('+216')) return num.slice(4);
-        if (num.startsWith('00216')) return num.slice(5);
-        return num;
-      };
-
-      const phonesToQuery = new Set<string>();
-      data.forEach((o: Partial<Order>) => {
-        if (o.phone) {
-          const norm = normalizePhone(o.phone);
-          if (norm) {
-            phonesToQuery.add(norm);
-            phonesToQuery.add(`+216${norm}`);
-            phonesToQuery.add(`00216${norm}`);
-          }
-        }
-      });
-      const phones = Array.from(phonesToQuery);
-
-      if (phones.length > 0) {
-        const { data: allPhoneOrders } = await supabase
-          .from('orders')
-          .select('phone, call_status')
-          .in('phone', phones)
-          .eq('archived', false);
-        
-        const phoneData: Record<string, { count: number; hasDelivered: boolean; hasReturned: boolean }> = {};
-        if (allPhoneOrders) {
-          for (const row of allPhoneOrders as { phone?: string | null; call_status?: string | null }[]) {
-            if (row.phone) {
-              const norm = normalizePhone(row.phone);
-              if (!norm) continue;
-              if (!phoneData[norm]) {
-                phoneData[norm] = { count: 0, hasDelivered: false, hasReturned: false };
-              }
-              phoneData[norm].count += 1;
-              const status = row.call_status;
-              if (status === 'delivered') phoneData[norm].hasDelivered = true;
-              if (status === 'returned') phoneData[norm].hasReturned = true;
-            }
-          }
-        }
-        
-        const enrichedData = data.map((order: Order) => {
-          const norm = normalizePhone(order.phone);
-          return {
-            ...order,
-            customer_order_count: norm ? (phoneData[norm]?.count || 1) : 1,
-            customer_has_delivered: norm ? (phoneData[norm]?.hasDelivered || false) : false,
-            customer_has_returned: norm ? (phoneData[norm]?.hasReturned || false) : false,
-          };
-        });
-        
-        setOrders(enrichedData as OrderWithItems[]);
-        ordersRef.current = enrichedData as OrderWithItems[];
-      } else {
-        setOrders(data as OrderWithItems[]);
-        ordersRef.current = data as OrderWithItems[];
-      }
-    } else {
-      setOrders([]);
-      ordersRef.current = [];
-    }
-    if (count !== null) setTotalCount(count);
-    setSelected(new Set());
-    setLoading(false);
-  }, [viewArchived, page, pageSize, searchQuery]);
-
-  // ── Sync active shipments (manual button + on-mount) ──────────────────────
+  // ── Sync delivery status ──────────────────────────────────────────────────────
   const syncDeliveryStatus = useCallback(async (silent = false) => {
     if (!silent) setSyncing(true);
     try {
-      const res = await fetch('/api/cosmos/sync', { method: 'POST' });
+      const res  = await fetch('/api/cosmos/sync', { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.ok) {
         await fetchOrders();
@@ -237,10 +175,7 @@ export default function AdminOrdersPage() {
     if (!silent) setSyncing(false);
   }, [fetchOrders]);
 
-  // Trigger fetchOrders when its dependencies change
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
-
-  // ── Auto-trigger silent sync once after initial orders load ─────────────────
+  // Auto-trigger silent sync once after initial load
   const hasSyncedOnMount = useRef(false);
   useEffect(() => {
     if (!loading && !hasSyncedOnMount.current) {
@@ -249,52 +184,37 @@ export default function AdminOrdersPage() {
     }
   }, [loading, syncDeliveryStatus]);
 
+  // Countdown timer display
+  useEffect(() => {
+    if (!lastSync) return;
+    setCountdown(AUTO_SYNC_INTERVAL / 1000);
+    const timer = setInterval(() => setCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(timer);
+  }, [lastSync]);
 
-  // ── Selection helpers ──────────────────────────────────────────────────────
-  const toggleSelect = (id: string) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
+  // ── Selection helpers ─────────────────────────────────────────────────────────
+  const toggleSelect    = (id: string) => setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  const toggleSelectAll = () => selected.size === orders.length ? setSelected(new Set()) : setSelected(new Set(orders.map(o => o.id)));
 
-  const toggleSelectAll = () => {
-    if (selected.size === orders.length) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(orders.map(o => o.id)));
-    }
-  };
-
-  // ── Archive / Unarchive ────────────────────────────────────────────────────
+  // ── Archive / Unarchive ───────────────────────────────────────────────────────
   const archiveSelected = async () => {
     const ids   = Array.from(selected);
     const label = viewArchived ? 'désarchiver' : 'archiver';
     if (!confirm(`${label.charAt(0).toUpperCase() + label.slice(1)} ${ids.length} commande(s) ?`)) return;
 
-    await supabase
-      .from('orders')
-      .update({ archived: !viewArchived } as never)
-      .in('id', ids);
-
+    await fetch('/api/admin/orders', {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, archived: !viewArchived }),
+    });
     await fetchOrders();
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
   if (loading) return <div className={adminStyles.contentArea}>Chargement...</div>;
 
-  const allSelected = orders.length > 0 && selected.size === orders.length;
+  const allSelected  = orders.length > 0 && selected.size === orders.length;
   const someSelected = selected.size > 0;
-
-  const items      = selectedOrder?.order_items ?? [];
-  const itemsTotal = items.reduce((s, i) => {
-    const p = i.products;
-    const unitPrice = i.quantity_break_price ?? (p?.discount != null && p.discount > 0
-      ? (p.price ?? 0) * (1 - p.discount / 100)
-      : (p?.price ?? 0));
-    return s + unitPrice * i.quantity;
-  }, 0);
 
   return (
     <div>
@@ -321,7 +241,7 @@ export default function AdminOrdersPage() {
         </div>
       </div>
 
-      {/* Search Input Filter Component */}
+      {/* Search Input */}
       <div className={styles.searchContainer}>
         <div className={styles.searchWrapper}>
           <input
@@ -332,10 +252,7 @@ export default function AdminOrdersPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
           {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className={styles.clearSearchBtn}
-            >
+            <button onClick={() => setSearchQuery('')} className={styles.clearSearchBtn}>
               Effacer
             </button>
           )}
@@ -405,15 +322,11 @@ export default function AdminOrdersPage() {
             </thead>
             <tbody>
               {orders.map(order => {
-                const delivery  = DELIVERY_STATUS[order.cosmos_status ?? ''];
                 const itemCount = order.order_items?.length ?? 0;
                 const isChecked = selected.has(order.id);
 
                 return (
-                  <tr
-                    key={order.id}
-                    className={isChecked ? styles.rowSelected : ''}
-                  >
+                  <tr key={order.id} className={isChecked ? styles.rowSelected : ''}>
                     <td className={`${styles.checkboxCol} ${adminStyles.hideMobile}`}>
                       <input
                         type="checkbox"
@@ -465,8 +378,8 @@ export default function AdminOrdersPage() {
                         >
                           <Truck size={18} />
                         </button>
-                        <button 
-                          className={styles.eyeBtn} 
+                        <button
+                          className={styles.eyeBtn}
                           onClick={() => { setSelectedOrder(order); setIsDrawerOpen(true); }}
                           title="Voir les détails"
                         >
@@ -518,7 +431,6 @@ export default function AdminOrdersPage() {
             >&#8594;</button>
           </div>
         </div>
-
       </div>
 
       {/* ── Order Details Drawer ── */}
@@ -532,7 +444,7 @@ export default function AdminOrdersPage() {
           setSelectedOrder(prev => prev ? { ...prev, call_status: s } : null);
         }}
       />
-      
+
       <OrderDetailsDrawer
         isOpen={isCreateDrawerOpen}
         onClose={() => setIsCreateDrawerOpen(false)}

@@ -1,37 +1,29 @@
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL     ?? '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
-
 /**
- * True only when real Supabase credentials are present.
- * While the placeholder URL is active, hooks will skip all API calls
- * and return empty data immediately.
+ * src/lib/supabase.ts — STUB
+ *
+ * Supabase has been removed. This file exports stubs so any residual
+ * imports compile without error while the migration is completed.
+ * Do NOT add real Supabase credentials — they will not be used.
  */
-export const isSupabaseConfigured =
-  supabaseUrl.length > 0 &&
-  !supabaseUrl.includes('placeholder') &&
-  supabaseAnonKey.length > 0 &&
-  !supabaseAnonKey.includes('placeholder');
 
-type GenericTable = { Row: Record<string, any>; Insert: Record<string, any>; Update: Record<string, any>; };
-type Database = {
-  public: {
-    Tables: {
-      categories: GenericTable;
-      orders: GenericTable;
-      order_items: GenericTable;
-      products: GenericTable;
-      product_images: GenericTable;
-      admin_users: GenericTable;
-      [key: string]: GenericTable;
-    }
+export const isSupabaseConfigured = false;
+
+// Minimal no-op stub — methods return empty data so the app degrades
+// gracefully rather than crashing if a call path is somehow missed.
+const noopQuery = () =>
+  Promise.resolve({ data: null, error: new Error('Supabase removed — use pg API routes') });
+
+export const supabase: any = new Proxy(
+  {},
+  {
+    get(_t, prop) {
+      if (prop === 'from')    return () => supabase;
+      if (prop === 'channel') return () => supabase;
+      if (prop === 'on')      return () => supabase;
+      if (prop === 'subscribe') return () => supabase;
+      if (prop === 'removeChannel') return () => {};
+      // select / insert / update / delete / upsert / single / eq / in / etc.
+      return () => noopQuery();
+    },
   }
-};
-
-const _g = globalThis as typeof globalThis & { __nyvara_supabase?: ReturnType<typeof createClient<Database>> };
-if (!_g.__nyvara_supabase) {
-  _g.__nyvara_supabase = createClient<Database>(supabaseUrl || 'https://x.supabase.co', supabaseAnonKey || 'x');
-}
-export const supabase = _g.__nyvara_supabase!;
-
+);

@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { Product, ProductFilters, SortOption } from '@/types';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const getActualPrice = (p: Product) => {
   const hasDiscount = p.discount != null && p.discount > 0;
@@ -15,71 +16,44 @@ const getActualPrice = (p: Product) => {
 // ─── useProducts ──────────────────────────────────────────────────────────────
 
 export function useProducts(filters?: ProductFilters, sort?: SortOption) {
-  const [products, setProducts]   = useState<Product[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
+  const [products, setProducts]     = useState<Product[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
 
   const fetchProducts = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setProducts([]);
-      setTotalCount(0);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
 
     try {
-      // Pagination support — default to 100 rows max, never request unbounded data
       const pageSize = (filters as any)?.pageSize || 100;
-      const page = (filters as any)?.page || 0;
-      const offset = page * pageSize;
+      const page     = (filters as any)?.page     || 0;
+      const offset   = page * pageSize;
 
-      let query = supabase
-        .from('products')
-        .select('*, categories(id, name)', { count: 'exact' });
+      // Build query string for Express API
+      const params = new URLSearchParams();
+      if (filters?.category_id) params.set('category_id', String(filters.category_id));
+      if (filters?.gender && filters.gender !== 'all') params.set('gender', filters.gender);
+      if (filters?.search)      params.set('search', filters.search);
+      if (filters?.frame_shape) params.set('frame_shape', filters.frame_shape);
+      if (filters?.min_price !== undefined) params.set('min_price', String(filters.min_price));
+      if (filters?.max_price !== undefined) params.set('max_price', String(filters.max_price));
 
-      if (filters?.category_id)
-        query = query.eq('category_id', filters.category_id);
-
-      if (filters?.gender && filters.gender !== 'all') {
-        if (filters.gender === 'homme' || filters.gender === 'femme') {
-          query = query.in('gender', [filters.gender, 'unisex']);
-        } else {
-          query = query.eq('gender', filters.gender);
-        }
-      }
-
-      if (filters?.search)
-        query = query.ilike('title', `%${filters.search}%`);
-
-      if (filters?.frame_shape)
-        query = query.eq('frame_shape', filters.frame_shape);
-
-      const needsJSSort = sort === 'tendance' || sort === 'price_asc' || sort === 'price_desc';
+      const needsJSSort   = sort === 'tendance' || sort === 'price_asc' || sort === 'price_desc';
       const needsJSFilter = filters?.min_price !== undefined || filters?.max_price !== undefined;
 
-      // Sort in DB if possible
-      switch (sort) {
-        case 'name_asc':   query = query.order('title',      { ascending: true });  break;
-        case 'tendance':
-        case 'price_asc':
-        case 'price_desc': /* Custom JS Sort below */                               break;
-        default:           query = query.order('created_at', { ascending: false }); break;
+      // DB-side sort only when we don't need JS sort
+      if (!needsJSSort) {
+        if (sort === 'name_asc') params.set('sort', 'name_asc');
+        // default: created_at DESC (server default)
       }
 
-      // Apply pagination in DB ONLY if we don't need JS sorting/filtering
-      if (!needsJSSort && !needsJSFilter) {
-        query = query.range(offset, offset + pageSize - 1);
-      }
+      const res = await fetch(`${API_URL}/api/products?${params.toString()}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-      const { data, error: err, count } = await query;
-      if (err) throw err;
-      
-      let finalData = (data as Product[]) ?? [];
+      let finalData: Product[] = await res.json();
 
-      // 1. JS Filter by Price
+      // JS price filter (Express server already handles min/max_price, but include as safety net)
       if (needsJSFilter) {
         finalData = finalData.filter(p => {
           const price = getActualPrice(p);
@@ -89,20 +63,16 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
         });
       }
 
-      // 2. JS Sort
+      // JS sorts
       if (sort === 'tendance') {
         try {
-          const res = await fetch('/api/trending');
-          if (res.ok) {
-            const trendingData = await res.json();
+          const trendRes = await fetch('/api/trending');
+          if (trendRes.ok) {
+            const trendingData = await trendRes.json();
             const scoreMap = new Map<string, number>(
               trendingData.map((t: any) => [t.product_id, t.trending_score])
             );
-            finalData.sort((a, b) => {
-              const scoreA = scoreMap.get(a.id) ?? 0;
-              const scoreB = scoreMap.get(b.id) ?? 0;
-              return scoreB - scoreA;
-            });
+            finalData.sort((a, b) => (scoreMap.get(b.id) ?? 0) - (scoreMap.get(a.id) ?? 0));
           }
         } catch (e) {
           console.error('Failed to load trending scores for sorting', e);
@@ -113,21 +83,22 @@ export function useProducts(filters?: ProductFilters, sort?: SortOption) {
         finalData.sort((a, b) => getActualPrice(b) - getActualPrice(a));
       }
 
-      // 3. JS Pagination
-      if (needsJSSort || needsJSFilter) {
-        setTotalCount(finalData.length);
-        finalData = finalData.slice(offset, offset + pageSize);
-      } else {
-        setTotalCount(count ?? 0);
-      }
+      // Pagination
+      setTotalCount(finalData.length);
+      finalData = finalData.slice(offset, offset + pageSize);
 
       setProducts(finalData);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load products');
+      setProducts([]);
     } finally {
       setLoading(false);
     }
-  }, [filters?.category_id, filters?.gender, filters?.min_price, filters?.max_price, filters?.search, filters?.frame_shape, sort, (filters as any)?.page, (filters as any)?.pageSize]);
+  }, [
+    filters?.category_id, filters?.gender, filters?.min_price,
+    filters?.max_price, filters?.search, filters?.frame_shape,
+    sort, (filters as any)?.page, (filters as any)?.pageSize,
+  ]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
 
@@ -143,18 +114,15 @@ export function useProduct(id: string) {
 
   useEffect(() => {
     if (!id) return;
-    if (!isSupabaseConfigured) { setLoading(false); return; }
     setLoading(true);
-    supabase
-      .from('products')
-      .select('*, categories(id, name)')
-      .eq('id', id)
-      .single()
-      .then(({ data, error: err }) => {
-        if (err) setError(err.message);
-        else setProduct(data as Product);
-        setLoading(false);
-      });
+    fetch(`${API_URL}/api/products/${id}`)
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => { setProduct(data as Product); })
+      .catch(e  => { setError(e.message); })
+      .finally(() => { setLoading(false); });
   }, [id]);
 
   return { product, loading, error };
@@ -167,16 +135,13 @@ export function useFeaturedProducts(limit = 6) {
   const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) { setLoading(false); return; }
-    supabase
-      .from('products')
-      .select('*, categories(id, name)')
-      .order('created_at', { ascending: false })
-      .limit(limit)
-      .then(({ data }) => {
-        setProducts((data as Product[]) ?? []);
-        setLoading(false);
-      });
+    fetch(`${API_URL}/api/products`)
+      .then(res => res.ok ? res.json() : [])
+      .then((data: Product[]) => {
+        setProducts(data.slice(0, limit));
+      })
+      .catch(e => { console.error('useFeaturedProducts error:', e); })
+      .finally(() => setLoading(false));
   }, [limit]);
 
   return { products, loading };

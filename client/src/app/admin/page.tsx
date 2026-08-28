@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import type { Order } from '@/types';
 import adminStyles from './admin.module.css';
 import styles from './dashboard.module.css';
@@ -56,17 +55,14 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    // Limit to last 500 orders — fetching all rows with nested joins
-    // on every mount is a major CPU/RAM bottleneck.
-    supabase
-      .from('orders')
-      .select(`*, order_items ( quantity, products ( cost_price ) )`)
-      .order('created_at', { ascending: false })
-      .limit(500)
-      .then(({ data }) => {
-        if (data) setOrders(data as OrderWithItems[]);
+    // Limit to last 500 orders for dashboard metrics
+    fetch('/api/admin/orders?archived=false&page=0&pageSize=500')
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(json => {
+        setOrders((json.data ?? []) as OrderWithItems[]);
         setLoading(false);
-      });
+      })
+      .catch(() => setLoading(false));
   }, []);
 
   // ── Metrics ──────────────────────────────────────────────────────────────

@@ -7,7 +7,6 @@ import styles from './OrderDetailsDrawer.module.css';
 import type { ColorOption } from '@/types';
 import type { OrderWithItems, OrderItem } from '@/app/admin/orders/page';
 import StatusDropdown, { CALL_STATUSES } from './StatusDropdown';
-import { supabase } from '@/lib/supabase';
 
 interface DrawerProps {
   isOpen: boolean;
@@ -39,7 +38,6 @@ function getUnitPrice(item: OrderItem): number {
 function findColor(item: OrderItem): ColorOption | undefined {
   const colors = item.products?.color_options;
   if (!colors || colors.length === 0) return undefined;
-  // Prefer name match first (most specific), then hex1 as fallback
   if (item.selected_color_name) {
     const byName = colors.find((co: ColorOption) => co.name === item.selected_color_name);
     if (byName) return byName;
@@ -68,34 +66,36 @@ export default function OrderDetailsDrawer({
   const [historyLoading, setHistoryLoading] = React.useState(false);
   const [expandedHistoryId, setExpandedHistoryId] = React.useState<string | null>(null);
 
+  // ─── Load product picker when editing ────────────────────────────────────────
   React.useEffect(() => {
     if (!isOpen) {
       setActiveTab('summary');
       setHistoryOrders([]);
       setExpandedHistoryId(null);
     } else if (isOpen && (mode === 'create' || isEditing) && products.length === 0) {
-      supabase.from('products').select('id, title, price, discount, image_url, color_options').order('title').then(({ data }) => {
-        if (data) setProducts(data);
-      });
+      fetch('/api/admin/products')
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setProducts(data))
+        .catch(e => console.error('[Drawer] Failed to load products:', e));
     }
   }, [isOpen, mode, isEditing, products.length]);
 
+  // ─── Load order history when history tab is selected ─────────────────────────
   React.useEffect(() => {
     if (activeTab === 'history' && order?.phone) {
       setHistoryLoading(true);
-      supabase
-        .from('orders')
-        .select('id, created_at, total_price, call_status, order_items(quantity, quantity_break_price, selected_color_name, products(id, title, price, discount, image_url))')
-        .eq('phone', order.phone)
-        .neq('id', order.id)
-        .order('created_at', { ascending: false })
-        .then(({ data, error }) => {
-          if (!error && data) setHistoryOrders(data);
-          setHistoryLoading(false);
-        });
+      const params = new URLSearchParams({ phone: order.phone });
+      if (order.id && order.id !== 'new') params.set('excludeId', order.id);
+
+      fetch(`/api/admin/orders/history?${params.toString()}`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => setHistoryOrders(data))
+        .catch(e => console.error('[Drawer] Failed to load history:', e))
+        .finally(() => setHistoryLoading(false));
     }
   }, [activeTab, order?.phone, order?.id]);
 
+  // ─── Populate form from order ─────────────────────────────────────────────────
   React.useEffect(() => {
     if (order) {
       setFormData({
@@ -140,7 +140,7 @@ export default function OrderDetailsDrawer({
 
   const handleUpdateQty   = (id: string, qty: number)     => patchItem(id, { quantity: Math.max(1, qty) });
   const handleUpdatePrice = (id: string, price: number)   => patchItem(id, { custom_price: price, quantity_break_price: price });
-  const handleUpdateColor = (id: string, name: string | null, hex1: string | null = null, hex2: string | null = null) => 
+  const handleUpdateColor = (id: string, name: string | null, hex1: string | null = null, hex2: string | null = null) =>
     patchItem(id, { selected_color_name: name, selected_color_hex1: hex1, selected_color_hex2: hex2 });
 
   const handleDeleteItem = (id: string) => {
@@ -159,6 +159,7 @@ export default function OrderDetailsDrawer({
   const deliveryPrice = 0;
   const grandTotal    = subTotal + deliveryPrice;
 
+  // ─── Save handler ─────────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!order) return;
     setIsSaving(true);
@@ -167,74 +168,63 @@ export default function OrderDetailsDrawer({
       const newTotal = editableItems.reduce((s, i) => s + i.custom_price * i.quantity, 0);
 
       if (mode === 'create') {
-        const { data: rawNewOrder, error: createError } = await supabase
-          .from('orders')
-          .insert({
+        // Create a brand-new order via admin API
+        const res = await fetch('/api/admin/orders', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             ...formData,
-            total_price: newTotal,
-            call_status: order.call_status ?? 'pending',
+            total_price:   newTotal,
+            call_status:   order.call_status ?? 'pending',
             cosmos_status: 'pending',
-          } as never)
-          .select()
-          .single();
-        const newOrder = rawNewOrder as unknown as { id: string };
-        if (createError) throw createError;
-
-        if (editableItems.length > 0) {
-          const itemsToInsert = editableItems.map(item => ({
-            order_id: newOrder.id,
-            product_id: item.product_id || (item.products as any)?.id,
-            quantity: item.quantity,
-            quantity_break_price: item.custom_price,
-            selected_color_name: item.selected_color_name ?? null,
-            selected_color_hex1: item.selected_color_hex1 ?? null,
-            selected_color_hex2: item.selected_color_hex2 ?? null,
-          }));
-          const { error: itemsError } = await supabase.from('order_items').insert(itemsToInsert as never);
-          if (itemsError) throw itemsError;
-        }
-      } else {
-        const originalIds = viewItems.map(i => i.id);
-        const deletedIds  = originalIds.filter(id => !editableItems.find(i => i.id === id));
-        if (deletedIds.length > 0) {
-          const { error } = await supabase.from('order_items').delete().in('id', deletedIds).select();
-          if (error) throw error;
-        }
-
-        for (const item of editableItems) {
-          if (item.id.startsWith('temp_')) {
-            const { error } = await supabase.from('order_items').insert({
-              order_id: order.id,
-              product_id: item.product_id || (item.products as any)?.id,
-              quantity: item.quantity,
+            items: editableItems.map(item => ({
+              product_id:          item.product_id || (item.products as any)?.id,
+              quantity:            item.quantity,
               quantity_break_price: item.custom_price,
               selected_color_name: item.selected_color_name ?? null,
               selected_color_hex1: item.selected_color_hex1 ?? null,
               selected_color_hex2: item.selected_color_hex2 ?? null,
-            } as never);
-            if (error) throw error;
-          } else {
-            const { error } = await supabase
-              .from('order_items')
-              .update({
-                quantity:             item.quantity,
-                quantity_break_price: item.custom_price,
-                selected_color_name:  item.selected_color_name ?? null,
-                selected_color_hex1:  item.selected_color_hex1 ?? null,
-                selected_color_hex2:  item.selected_color_hex2 ?? null,
-              } as never)
-              .eq('id', item.id)
-              .select();
-            if (error) throw error;
-          }
+            })),
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${res.status}`);
+        }
+      } else {
+        // 1. Update order fields
+        const patchRes = await fetch(`/api/admin/orders/${order.id}`, {
+          method:  'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...formData, total_price: newTotal }),
+        });
+        if (!patchRes.ok) {
+          const body = await patchRes.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${patchRes.status}`);
         }
 
-        const { error } = await supabase
-          .from('orders')
-          .update({ ...formData, total_price: newTotal } as never)
-          .eq('id', order.id)
-          .select();
-        if (error) throw error;
+        // 2. Upsert / delete items
+        const originalIds  = viewItems.map(i => i.id);
+        const deletedIds   = originalIds.filter(id => !editableItems.find(i => i.id === id));
+        const upsert_items = editableItems.map(item => ({
+          id:                  item.id,
+          product_id:          item.product_id || (item.products as any)?.id,
+          quantity:            item.quantity,
+          quantity_break_price: item.custom_price,
+          selected_color_name: item.selected_color_name ?? null,
+          selected_color_hex1: item.selected_color_hex1 ?? null,
+          selected_color_hex2: item.selected_color_hex2 ?? null,
+        }));
+
+        const itemsRes = await fetch(`/api/admin/orders/${order.id}/items`, {
+          method:  'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deleted_ids: deletedIds, upsert_items }),
+        });
+        if (!itemsRes.ok) {
+          const body = await itemsRes.json().catch(() => ({}));
+          throw new Error(body.error || `HTTP ${itemsRes.status}`);
+        }
       }
 
       console.groupEnd();
@@ -393,13 +383,13 @@ export default function OrderDetailsDrawer({
           </div>
 
           <div className={styles.tabs}>
-            <button 
+            <button
               className={`${styles.tab} ${activeTab === 'summary' ? styles.tabActive : ''}`}
               onClick={() => setActiveTab('summary')}
             >
               Summary
             </button>
-            <button 
+            <button
               className={`${styles.tab} ${activeTab === 'history' ? styles.tabActive : ''}`}
               onClick={() => setActiveTab('history')}
             >
@@ -430,9 +420,9 @@ export default function OrderDetailsDrawer({
                   return (
                     <tr key={item.id} className={styles.tableRow}>
                       <td className={styles.productCell}>
-                        <a 
-                          href={`/shop/${item.products?.id}`} 
-                          target="_blank" 
+                        <a
+                          href={`/shop/${item.products?.id}`}
+                          target="_blank"
                           rel="noopener noreferrer"
                           style={{ display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none', color: 'inherit' }}
                         >
@@ -456,7 +446,7 @@ export default function OrderDetailsDrawer({
                         {isEditing ? (() => {
                           const colors   = item.products?.color_options ?? [];
                           const editItem = item as EditableItem;
-                          const selected = colors.find(co => 
+                          const selected = colors.find((co: ColorOption) =>
                             (editItem.selected_color_name && co.name === editItem.selected_color_name) ||
                             (editItem.selected_color_hex1 && co.hex1 === editItem.selected_color_hex1)
                           ) ?? null;
@@ -517,8 +507,8 @@ export default function OrderDetailsDrawer({
                                       transition: 'all 0.15s',
                                     }}
                                   >✕</div>
-                                  {colors.map(co => {
-                                    const active = (editItem.selected_color_name && editItem.selected_color_name === co.name) || 
+                                  {colors.map((co: ColorOption) => {
+                                    const active = (editItem.selected_color_name && editItem.selected_color_name === co.name) ||
                                                    (editItem.selected_color_hex1 && editItem.selected_color_hex1 === co.hex1);
                                     return (
                                       <div
@@ -604,12 +594,12 @@ export default function OrderDetailsDrawer({
                 {isEditing && (
                   <tr className={styles.tableRow}>
                     <td colSpan={6} style={{ padding: '8px 16px' }}>
-                      <select 
+                      <select
                         className={styles.selectInput}
                         style={{ width: '100%', background: 'rgba(255,255,255,0.05)', color: '#fff', border: '1px dashed rgba(255,255,255,0.2)', cursor: 'pointer' }}
                         defaultValue=""
                         onChange={e => {
-                          const p = products.find(x => x.id === e.target.value);
+                          const p = products.find((x: any) => x.id === e.target.value);
                           if (p) {
                             setEditableItems(prev => [...prev, {
                               id: `temp_${Math.random()}`,
@@ -623,7 +613,7 @@ export default function OrderDetailsDrawer({
                         }}
                       >
                         <option value="" disabled>+ Ajouter un produit...</option>
-                        {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                        {products.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
                       </select>
                     </td>
                   </tr>
@@ -646,7 +636,7 @@ export default function OrderDetailsDrawer({
             ) : (
               historyLoading ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
-                  Chargement de l'historique...
+                  Chargement de l&apos;historique...
                 </div>
               ) : historyOrders.length === 0 ? (
                 <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.5)', fontSize: '14px' }}>
@@ -668,11 +658,11 @@ export default function OrderDetailsDrawer({
                       const itemCount = h.order_items?.reduce((acc: number, item: any) => acc + (item.quantity || 1), 0) || 0;
                       const statusObj = CALL_STATUSES.find(s => s.value === h.call_status) || CALL_STATUSES[0];
                       const isExpanded = expandedHistoryId === h.id;
-                      
+
                       return (
                         <React.Fragment key={h.id}>
-                          <tr 
-                            className={styles.tableRow} 
+                          <tr
+                            className={styles.tableRow}
                             onClick={() => setExpandedHistoryId(isExpanded ? null : h.id)}
                             style={{ cursor: 'pointer', transition: 'background 0.2s', background: isExpanded ? 'rgba(255,255,255,0.03)' : undefined }}
                           >
@@ -697,7 +687,7 @@ export default function OrderDetailsDrawer({
                             </td>
                             <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{h.total_price?.toFixed(3)} TND</td>
                             <td style={{ whiteSpace: 'nowrap', width: '1%' }}>
-                              <span style={{ 
+                              <span style={{
                                   padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,
                                   background: statusObj.bg, color: statusObj.color,
                                   border: `1px solid ${statusObj.color.replace(')', ', 0.3)').replace('rgb', 'rgba')}`,
