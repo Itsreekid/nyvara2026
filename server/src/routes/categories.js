@@ -1,14 +1,12 @@
-const express  = require('express');
-const router   = express.Router();
-const supabase = require('../lib/supabase');
+const express = require('express');
+const router  = express.Router();
+const pool    = require('../lib/db');
 
 // GET /api/categories
 router.get('/', async (req, res, next) => {
   try {
-    const { data, error } = await supabase
-      .from('categories').select('*').order('name', { ascending: true });
-    if (error) throw error;
-    res.json(data);
+    const { rows } = await pool.query('SELECT * FROM categories ORDER BY name ASC');
+    res.json(rows);
   } catch (err) { next(err); }
 });
 
