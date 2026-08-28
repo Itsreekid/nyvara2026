@@ -99,7 +99,7 @@ export default function AdminProductsPage() {
     setEditingProduct(null);
     
     // Default category to "Lunettes solaires" if it exists in the fetched categories
-    const sunCat = categories.find(c => c.name.toLowerCase().includes('solaire'));
+    const sunCat = categories.find(c => c.name?.toLowerCase().includes('solaire'));
     setFormData({ ...emptyForm, category_id: sunCat ? sunCat.id : '' });
 
     setGalleryImages([]);
