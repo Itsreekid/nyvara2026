@@ -13,14 +13,33 @@ export async function loginAction(formData: FormData) {
     return { error: 'Veuillez remplir tous les champs.' };
   }
 
-  const { rows } = await pool.query(
-    `SELECT id, password_hash, role, full_name
-     FROM   admin_users
-     WHERE  username = $1
-     LIMIT  1`,
-    [username]
-  );
-  const user = rows[0];
+  // 1. Fallback / Master admin check using ENV variable
+  if (username === 'admin' && password === process.env.ADMIN_PASSWORD) {
+    const cookieStore = await cookies();
+    cookieStore.set('nyvara_admin_session', 'master', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7,
+      path: '/',
+    });
+    return { success: true, role: 'master' };
+  }
+
+  // 2. Database check for employee accounts
+  let user: any = null;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, password_hash, role, full_name
+       FROM   admin_users
+       WHERE  username = $1
+       LIMIT  1`,
+      [username]
+    );
+    user = rows[0];
+  } catch (err) {
+    console.warn('admin_users table query failed (might not exist yet):', err);
+  }
 
   if (!user) return { error: 'Identifiants incorrects.' };
 
