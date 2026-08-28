@@ -10,15 +10,7 @@ const app  = express();
 const PORT = process.env.PORT || 5000;
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(cors({
-  origin: [
-    'http://lwk8anu0qqboah4j4vrff5hy.57.131.147.211.sslip.io',
-    'http://www.lwk8anu0qqboah4j4vrff5hy.57.131.147.211.sslip.io',
-    'http://localhost:3000'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
-}));
+app.use(cors({ origin: '*', credentials: true }));
 app.options('*', cors());
 app.use(express.json());
 
