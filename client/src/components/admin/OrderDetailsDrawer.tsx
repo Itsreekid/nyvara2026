@@ -685,7 +685,7 @@ export default function OrderDetailsDrawer({
                                 </svg>
                               </span>
                             </td>
-                            <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{h.total_price?.toFixed(3)} TND</td>
+                            <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{Number(h.total_price || 0).toFixed(3)} TND</td>
                             <td style={{ whiteSpace: 'nowrap', width: '1%' }}>
                               <span style={{
                                   padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 700,

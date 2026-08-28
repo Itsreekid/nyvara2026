@@ -34,7 +34,7 @@ export default function OrderToast({ order, onClose }: OrderToastProps) {
         <div className={styles.title}>🎉 Nouvelle commande !</div>
         <div className={styles.name}>{order.customer_name}</div>
         <div className={styles.meta}>
-          {order.city} · {order.total_price?.toFixed(3)} TND
+          {order.city} · {Number(order.total_price || 0).toFixed(3)} TND
         </div>
       </div>
       <button className={styles.close} onClick={() => { setVisible(false); setTimeout(onClose, 400); }}>

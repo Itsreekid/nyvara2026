@@ -252,7 +252,7 @@ export default function AdminDashboardPage() {
                   <td>#{order.id.slice(0, 8)}</td>
                   <td>{order.customer_name}</td>
                   <td>{safeFormatDate(order.created_at)}</td>
-                  <td>{order.total_price?.toFixed(3)} TND</td>
+                  <td>{Number(order.total_price || 0).toFixed(3)} TND</td>
                   <td>
                     <span className={`${adminStyles.statusBadge} ${adminStyles.statusPending}`}>
                       {order.cosmos_status || 'En attente'}

@@ -350,7 +350,7 @@ export default function AdminOrdersPage() {
                         <span>{itemCount} article{itemCount !== 1 ? 's' : ''}</span>
                       </button>
                     </td>
-                    <td style={{ whiteSpace: 'nowrap' }}>{order.total_price?.toFixed(3)} TND</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>{Number(order.total_price || 0).toFixed(3)} TND</td>
 
                     <td>
                       {(() => {
