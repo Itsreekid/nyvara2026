@@ -1,8 +1,19 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import pool from '@/lib/db';
+
+/** Returns true only when the actual request arrived over HTTPS.
+ *  Works behind reverse-proxies (Coolify / Nginx) that set x-forwarded-proto.
+ *  Falls back to NODE_ENV so local `next dev` (http) stays cookieless-secure-off too.
+ */
+async function isHttps(): Promise<boolean> {
+  const hdrs = await headers();
+  const proto = hdrs.get('x-forwarded-proto') ?? hdrs.get('x-forwarded-ssl');
+  if (proto) return proto.split(',')[0].trim() === 'https';
+  return process.env.NODE_ENV === 'production' && process.env.COOKIE_SECURE !== 'false';
+}
 
 // ── Login ─────────────────────────────────────────────────────────────────
 export async function loginAction(formData: FormData) {
@@ -18,8 +29,8 @@ export async function loginAction(formData: FormData) {
     const cookieStore = await cookies();
     cookieStore.set('nyvara_admin_session', 'master', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: await isHttps(),
+      sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
@@ -49,8 +60,8 @@ export async function loginAction(formData: FormData) {
   const cookieStore = await cookies();
   cookieStore.set('nyvara_admin_session', user.role, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
+    secure: await isHttps(),
+    sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7,
     path: '/',
   });
