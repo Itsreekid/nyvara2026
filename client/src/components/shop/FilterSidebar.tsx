@@ -32,7 +32,7 @@ export default function FilterSidebar({ filters, onChange, onReset }: FilterSide
   const [openSections, setOpenSections] = useState({ gender: true, category: true, price: true, frameShape: true });
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const GENDERS = [
+  const GENDERS: { value: Gender | 'all'; label: string }[] = [
     { value: 'all',    label: t('shop.filterAll') },
     { value: 'homme',  label: t('shop.filterMen') },
     { value: 'femme',  label: t('shop.filterWomen') },
