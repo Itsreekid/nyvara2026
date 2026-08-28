@@ -22,7 +22,7 @@ export default function AdminShell({ role, children }: Props) {
   const pathname = usePathname();
   const [newOrder, setNewOrder] = useState<Order | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'master';
 
   useOrderNotification({ onNewOrder: (order) => setNewOrder(order) });
 

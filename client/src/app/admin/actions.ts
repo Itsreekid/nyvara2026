@@ -27,14 +27,14 @@ export async function loginAction(formData: FormData) {
   // 1. Fallback / Master admin check using ENV variable
   if (username === 'admin' && password === process.env.ADMIN_PASSWORD) {
     const cookieStore = await cookies();
-    cookieStore.set('nyvara_admin_session', 'master', {
+    cookieStore.set('nyvara_admin_session', 'admin', {
       httpOnly: true,
       secure: await isHttps(),
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
-    return { success: true, role: 'master' };
+    return { success: true, role: 'admin' };
   }
 
   // 2. Database check for employee accounts
